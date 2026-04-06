@@ -26,7 +26,7 @@ This platform allows:
 - public users to submit licence applications online
 - staff to review, process, and decide on applications
 - staff to request additional information from applicants
-- applications to move through a controlled set of workflow states
+- applications to move through a fixed set of workflow states
 - applicants to receive email notifications at key points
 - multiple tenant organisations (councils) to operate independently on one platform
 
@@ -47,24 +47,100 @@ Always optimise for:
 
 ---
 
+# Multi-Tenancy — Non-Negotiable
+
+**The system is multi-tenant from day one.**
+
+This is not optional and must never be deferred or retrofitted.
+
+Rules:
+- `tenant_id` is required on every tenant-scoped table
+- Tenant isolation is enforced at the backend query level — never rely on application-layer filtering alone
+- No tenant should ever be able to read or write another tenant's data
+- Platform-level concerns (tenant management, platform admin) are separate from tenant-level concerns
+- Early MVP may be built and tested using one initial internal tenant — this is acceptable
+- The schema and access control model must support multiple tenants from the first migration
+
+---
+
+# Roles
+
+**Platform level:**
+- `platform_admin` — manages tenants, platform config, and system health
+
+**Tenant level:**
+- `tenant_admin` — manages users and settings within their council
+- `officer` — reviews and processes applications
+- `manager` — supervisory role; can reassign cases and view all tenant cases
+- `applicant` — public user who submits and tracks applications
+
+Platform roles and tenant roles are separate concerns. A user may hold both.
+
+---
+
+# Application Lifecycle
+
+```
+draft -> submitted -> under_review -> awaiting_information -> under_review
+                                   -> approved
+                                   -> refused
+```
+
+States:
+- `draft` — started by applicant, not yet submitted
+- `submitted` — submitted, awaiting staff pickup
+- `under_review` — assigned to officer, being actively worked
+- `awaiting_information` — officer has requested more from applicant
+- `approved` — final positive decision
+- `refused` — final negative decision
+
+Decision types: `approve`, `refuse`, `request_information`
+
+Do NOT build a configurable workflow engine. States are fixed in code.
+
+---
+
 # Architecture Doctrine Governance
 
 The system uses **Doctrine-First Architecture Governance**.
 
 Truth hierarchy:
-
-1. **Runtime** (Live Code & Config): The absolute truth of the current system state.
-2. **Decision** (Daily Journals): The immutable historical record of architectural choices.
-3. **Intent** (Doctrine Documents): The authoritative contract for intended system behaviour.
-4. **Summary** (Changelog Journal): The chronological index for high-level navigation.
-5. **Archive** (Historical Notes & Logs): Ephemeral logs and superseded design notes.
+1. **Runtime** (Live Code & Config) — absolute truth of current system state
+2. **Decision** (Daily Journals) — immutable historical record of architectural choices
+3. **Intent** (Doctrine Documents) — authoritative contract for intended system behaviour
+4. **Summary** (Changelog Journal) — chronological index for navigation
+5. **Archive** (Historical Notes) — superseded design notes
 
 Rules:
+- If doctrine conflicts with journals → journals win
+- If live system conflicts with journals → STOP and ask user
+- Never silently overwrite architectural truth
+- Journals must never rewrite history — address errors in new entries
 
-- If doctrine conflicts with journals -> journals win (Decision > Intent).
-- If live system conflicts with journals -> STOP and ask user.
-- Never silently overwrite architectural truth.
-- Journals must NEVER rewrite history. Errors or superseded decisions must be addressed in new entries.
+---
+
+# Roadmap Discipline
+
+The project follows a phase-led delivery model. See `docs/roadmap/00_PLATFORM_HIGH_LEVEL_ROADMAP.md`.
+
+Rules:
+- Always identify the current phase before starting work
+- Align all work to the current phase — do not build ahead of it
+- Do not skip phases silently — phase skipping must be explicit and justified
+- Flag missing design decisions rather than making silent assumptions
+- If a gap exists in design or scope, raise it — do not paper over it
+- Propose roadmap updates when work reveals something the roadmap did not anticipate
+- Keep documentation aligned with reality at all times
+
+Phases:
+- Phase 0 — Orientation
+- Phase 1 — MVP Service Design
+- Phase 2 — Domain Data Design
+- Phase 3 — System Architecture
+- Phase 4 — Delivery Planning
+- Phase 5 — MVP Build
+- Phase 6 — MVP Stabilisation
+- Phase 7 — Post-MVP Evolution
 
 ---
 
@@ -73,94 +149,97 @@ Rules:
 Do NOT blindly load all KB files.
 
 Instead:
-
 - read only doctrine files relevant to the task
 - read journals only when investigating historical behaviour
 - avoid unnecessary token usage
 
-## Daily Sprint Journals (MANDATORY STANDARD)
+## Daily Sprint Journals (Mandatory)
 
-- **Format:** `YYYY-MM-DD Title` (e.g., `2026-04-06 Schema Design.md`)
-- **Frequency:** One journal per working day
-- **Rule:** Create a new journal or append to the current day's journal for all work performed
-- **Backfills:** Required for any working day with code mutations. Must include a `Confidence Level: High/Med/Low`
-- **Breaking Decisions:** Any change breaking API contracts, schema integrity, or auth models must be explicitly flagged
+- **Format:** `YYYY-MM-DD Title` (e.g. `2026-04-06 Schema Design.md`)
+- **Frequency:** one journal per working day
+- **Rule:** create or append to the current day's journal for all work performed
+- **Backfills:** required for working days with code mutations — include `Confidence Level: High/Med/Low`
+- **Breaking decisions:** any change breaking API contracts, schema integrity, or auth models must be explicitly flagged
 
 After meaningful system changes:
-
 - update the correct doctrine file
-- write/append to the daily sprint journal
+- write or append to the daily sprint journal
 - remove stale architectural wording
-- never duplicate doctrine into journals
-
----
-
-# Key Design Principles
-
-- **Multi-tenant from day one** — tenant_id on every main table, enforced in every query
-- **Modular monolith** — do NOT split into microservices prematurely
-- **Fixed workflow** — application states are fixed in code, not driven by a dynamic engine
-- **Secure by default** — all auth and validation enforced server-side, never trust the frontend
-- **Audit-first** — all mutations must be logged with actor, timestamp, and change
-
-## Application Workflow States
-
-```
-submitted -> under_review -> awaiting_info -> approved
-                          -> rejected
-```
-
-Do NOT build a configurable workflow engine yet.
-
-## Every Main Table Must Include
-
-- id
-- tenant_id
-- created_at
-- updated_at
-
----
-
-# Roles
-
-**Platform level:**
-- platform_admin — manages tenants and platform config
-
-**Tenant level:**
-- tenant_admin — manages users and settings within a council
-- officer — reviews and processes applications
-- applicant — public user who submits applications
+- never duplicate doctrine content into journals
 
 ---
 
 # Security and Data Governance
 
-Always consider:
-
+Always enforce:
 - least privilege per role
 - strict tenant isolation in all queries
-- secure session handling (server-issued cookies)
-- auditability of all mutations
-- no sensitive data in browser storage
-- never expose data across tenant boundaries
+- server-issued session cookies — no sensitive data in browser storage
+- all auth and permission checks in the backend handler — never the frontend
+- audit logging on every mutation (actor, timestamp, action, affected record)
+- input validation server-side before any database write
+- no sensitive data exposed in API responses beyond what the caller's role permits
+
+Never introduce:
+- frontend-only permission checks
+- implicit tenant assumptions in queries
+- hidden business logic not covered by audit
 
 ---
 
 # Production Engineering Mindset
 
 Always proactively identify:
-
 - performance risks and excessive database reads
-- caching opportunities
+- missing indexes or inefficient query patterns
 - security weaknesses and permission boundary risks
-- maintainability and operational fragility risks
+- operational fragility and maintainability risks
 
 Avoid:
-
 - tutorial-level design
 - premature abstraction
+- storing documents in the relational database
 - fragile architecture patterns
-- storing documents in the primary database
+
+Assume:
+- real users depend on uptime
+- data volume will grow
+- support burden must stay sustainable
+
+---
+
+# Build Standards
+
+When changing backend:
+- keep logic explicit and readable
+- keep permission checks close to the handler
+- prefer relational integrity over application-level consistency
+- every mutation must be audited
+- enforce `tenant_id` filtering in every tenant-scoped query — no exceptions
+
+When designing UI:
+- prioritise staff operational efficiency
+- keep public applicant flows simple and clear
+- verify component imports before adding JSX — missing imports cause silent crashes in production
+- do not introduce new CSS classes without confirming they exist in the stylesheet
+
+---
+
+# Git Behaviour
+
+You may:
+- group sensible commits
+- write clear commit messages
+- push when safe
+
+Do NOT push if:
+- migration risk is unclear
+- data integrity risk exists
+- security exposure is possible
+- change is destructive
+- confidence is low
+
+In those cases: stop and explain the risk before proceeding.
 
 ---
 
@@ -169,55 +248,15 @@ Avoid:
 User is dyslexic.
 
 Therefore:
-
 - keep replies short by default
 - use plain language
 - give practical next steps
 - expand only when asked
 
 For architecture answers include:
-
 - next step
 - risks
 - assumptions
-
----
-
-# Build Standards
-
-When changing backend:
-
-- keep logic explicit and readable
-- keep permission checks clear and close to the handler
-- prefer relational integrity
-- maintain audit consistency
-- avoid unnecessary joins or scans
-
-When designing UI:
-
-- prioritise staff operational efficiency
-- keep public applicant flows simple and clear
-- avoid visual complexity
-
----
-
-# Git Behaviour
-
-You may:
-
-- group sensible commits
-- write clear commit messages
-- push when safe
-
-Do NOT push if:
-
-- migration risk is unclear
-- data integrity risk exists
-- security exposure is possible
-- change is destructive
-- confidence is low
-
-In those cases: stop and explain risk.
 
 ---
 
@@ -235,7 +274,7 @@ In those cases: stop and explain risk.
 
 ## Key Directories
 
-```text
+```
 frontend/
 src/
 migrations/

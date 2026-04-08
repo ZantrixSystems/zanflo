@@ -4,6 +4,8 @@ compatibility_date = "2024-09-23"
 
 # Secrets — set these via CLI, never commit real values:
 #   npx wrangler secret put DATABASE_URL
+#   npx wrangler secret put JWT_SECRET
 #
 # For local dev, create a .dev.vars file (git-ignored) with:
 #   DATABASE_URL=postgres://...
+#   JWT_SECRET=some-long-random-string

@@ -55,10 +55,10 @@ export async function runMigrations(env) {
       continue;
     }
 
-    await sql.transaction((tx) => [
-      ...migration.statements.map((s) => tx(s)),
-      tx`INSERT INTO _migrations (filename) VALUES (${migration.filename})`,
-    ]);
+    for (const statement of migration.statements) {
+      await sql.unsafe(statement);
+    }
+    await sql`INSERT INTO _migrations (filename) VALUES (${migration.filename})`;
 
     results.push({ file: migration.filename, status: 'applied' });
   }

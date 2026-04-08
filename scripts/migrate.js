@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { execSync } from 'child_process';
 import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -6,16 +7,26 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(__dirname, '../migrations');
 
-const DATABASE_URL = process.env.NEON_DATABASE_URL;
-if (!DATABASE_URL) {
-  console.error('ERROR: NEON_DATABASE_URL environment variable is not set.');
-  process.exit(1);
+const PROJECT_ID = 'odd-silence-61915674';
+const ORG_ID = 'org-restless-morning-32034443';
+
+function getConnectionString() {
+  try {
+    return execSync(
+      `neon connection-string --project-id ${PROJECT_ID} --org-id ${ORG_ID}`,
+      { encoding: 'utf8' }
+    ).trim();
+  } catch (err) {
+    console.error('Failed to get connection string from Neon CLI.');
+    console.error('Run: neon auth');
+    process.exit(1);
+  }
 }
 
-const sql = neon(DATABASE_URL);
+const connectionString = getConnectionString();
+const sql = neon(connectionString);
 
 async function run() {
-  // Create migrations tracking table if it doesn't exist
   await sql`
     CREATE TABLE IF NOT EXISTS _migrations (
       id         SERIAL PRIMARY KEY,
@@ -24,11 +35,9 @@ async function run() {
     )
   `;
 
-  // Get already-applied migrations
   const applied = await sql`SELECT filename FROM _migrations`;
   const appliedSet = new Set(applied.map((r) => r.filename));
 
-  // Get all .sql files in order
   const files = readdirSync(migrationsDir)
     .filter((f) => f.endsWith('.sql'))
     .sort();
@@ -40,22 +49,20 @@ async function run() {
       continue;
     }
 
-    const filePath = join(migrationsDir, file);
-    const sql_text = readFileSync(filePath, 'utf8');
+    const statements = readFileSync(join(migrationsDir, file), 'utf8')
+      .split(/;\s*\n/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !s.startsWith('--'));
 
     console.log(`  apply ${file}`);
-    await sql.transaction((tx) => [
-      tx(sql_text),
-      tx`INSERT INTO _migrations (filename) VALUES (${file})`,
-    ]);
+    for (const statement of statements) {
+      await sql.unsafe(statement);
+    }
+    await sql`INSERT INTO _migrations (filename) VALUES (${file})`;
     ran++;
   }
 
-  if (ran === 0) {
-    console.log('Nothing to migrate.');
-  } else {
-    console.log(`Done. ${ran} migration(s) applied.`);
-  }
+  console.log(ran === 0 ? 'Nothing to migrate.' : `Done. ${ran} migration(s) applied.`);
 }
 
 run().catch((err) => {

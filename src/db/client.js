@@ -5,8 +5,8 @@ import { neon } from '@neondatabase/serverless';
  * Call once per request — Workers are stateless.
  */
 export function getDb(env) {
-  if (!env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not configured');
+  if (!env.NEON_DATABASE_URL) {
+    throw new Error('NEON_DATABASE_URL is not configured');
   }
-  return neon(env.DATABASE_URL);
+  return neon(env.NEON_DATABASE_URL);
 }

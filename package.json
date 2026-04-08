@@ -1,11 +1,12 @@
 {
-  "name": "zanflow-api",
+  "name": "zanflow",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "migrate": "node scripts/migrate.js"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.9.0"

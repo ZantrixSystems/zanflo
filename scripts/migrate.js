@@ -26,9 +26,9 @@ function loadDevVars() {
 
 loadDevVars();
 
-const connectionString = process.env.NEON_DATABASE_URL;
+const connectionString = process.env.DATABASE_URL;
 if (!connectionString || connectionString === 'PASTE_YOUR_NEON_CONNECTION_STRING_HERE') {
-  console.error('ERROR: NEON_DATABASE_URL is not set in .dev.vars');
+  console.error('ERROR: DATABASE_URL is not set in .dev.vars');
   process.exit(1);
 }
 

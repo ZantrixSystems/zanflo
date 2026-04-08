@@ -3,8 +3,8 @@ import { neon } from '@neondatabase/serverless';
 const migrations = [
   {
     filename: '0001_create_applications.sql',
-    sql: `
-      CREATE TABLE applications (
+    statements: [
+      `CREATE TABLE applications (
         id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
         tenant_id            UUID        NOT NULL,
         applicant_name       TEXT,
@@ -26,11 +26,10 @@ const migrations = [
             OR
             (status = 'draft'     AND submitted_at IS NULL)
           )
-      );
-
-      CREATE INDEX idx_applications_tenant_id     ON applications (tenant_id);
-      CREATE INDEX idx_applications_tenant_status ON applications (tenant_id, status);
-    `,
+      )`,
+      `CREATE INDEX idx_applications_tenant_id     ON applications (tenant_id)`,
+      `CREATE INDEX idx_applications_tenant_status ON applications (tenant_id, status)`,
+    ],
   },
 ];
 
@@ -57,7 +56,7 @@ export async function runMigrations(env) {
     }
 
     await sql.transaction((tx) => [
-      tx(migration.sql),
+      ...migration.statements.map((s) => tx(s)),
       tx`INSERT INTO _migrations (filename) VALUES (${migration.filename})`,
     ]);
 

@@ -172,3 +172,92 @@ This requires:
 
 The backend auth is already in place. The staff session JWT already carries `tenant_id` and `role`.
 What's missing is the staff route handlers and the staff UI.
+
+---
+
+## Custom domain attempt â€” `zanflo.com`
+
+### What was changed in runtime config
+
+Added this to `wrangler.toml`:
+
+```toml
+[[routes]]
+pattern = "zanflo.com"
+custom_domain = true
+```
+
+This keeps Wrangler as the source of truth for Worker domain binding.
+
+### Deployment result
+
+Ran:
+
+```bash
+npx wrangler deploy
+```
+
+Result:
+- Worker upload succeeded
+- Custom domain attach failed with Cloudflare API error `100117`
+
+Error meaning:
+- `zanflo.com` already has existing DNS records at the apex
+- Cloudflare refused to replace them automatically during this deploy
+
+### Runtime verification
+
+Observed at time of check:
+- `Resolve-DnsName zanflo.com -Type A` returned `104.21.36.251` and `172.67.201.158`
+- `https://zanflo.com` returned `200 OK`
+- Response headers indicate an existing GoDaddy-hosted site is currently live on the apex domain
+- `https://www.zanflo.com` returned `301` redirect to `https://zanflo.com/`
+
+### Decision
+
+Do **not** force `override_existing_dns_record` without an explicit cut-over decision.
+
+Reason:
+- Overriding the existing DNS record would replace the current apex site with the Cloudflare Worker
+- This is a live production-affecting change, not a harmless config sync
+
+### Current status
+
+- Repo config is ready for `zanflo.com`
+- Worker code is deployed successfully
+- Custom domain is **not** attached yet because the existing apex DNS has not been deliberately replaced
+
+### Remaining action when ready
+
+When the apex site is ready to be replaced:
+1. Remove or replace the current apex DNS target in Cloudflare
+2. Re-run `npx wrangler deploy`
+3. Verify `https://zanflo.com`
+4. Then decide whether to add `www.zanflo.com` as a second custom domain or keep the current redirect behaviour
+
+### Follow-up attempt after explicit cut-over approval
+
+The cut-over was then explicitly approved and retried the same day.
+
+Additional actions taken:
+- Re-ran `npx wrangler deploy`
+- Tried non-interactive deploy path
+- Created the Worker custom-domain changeset directly via Cloudflare API
+
+Result:
+- Custom domain object for `zanflo.com` now exists against Worker `zanflo`
+- Final `domains/records` bind still failed with `100117`
+
+Important finding:
+- The local Cloudflare auth can manage Workers and create the custom-domain object
+- It does **not** appear able to manage the conflicting apex DNS records for the zone from this environment
+- Direct DNS record API calls returned authentication errors, which suggests missing DNS edit capability on the current token/session
+
+So the cut-over is now blocked on Cloudflare-side DNS authority, not repo config.
+
+### Operational status at end of session
+
+- `wrangler.toml` is correct for `zanflo.com`
+- Worker `zanflo` is deployed
+- Custom domain registration has been initiated on the Worker
+- Apex DNS is still serving the pre-existing site until the conflicting DNS record is removed or replaced by a session with DNS edit access

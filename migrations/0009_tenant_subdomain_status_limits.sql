@@ -10,7 +10,7 @@
 -- For current internal tenants (Riverside), status is set to 'active'.
 
 -- ── 1. Add subdomain to tenants ──────────────────────────────────────────────
--- subdomain is the hostname component: e.g. 'riverside' for riverside.zanflow.co.uk
+-- subdomain is the hostname component: e.g. 'riverside' for riverside.zanflo.com
 -- Kept separate from slug to allow slug changes without breaking DNS.
 -- Format enforced by CHECK: lowercase alphanumeric + hyphens, 2-63 chars.
 ALTER TABLE tenants

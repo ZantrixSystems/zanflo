@@ -1,7 +1,7 @@
 # Design System — Alabaster Terminal
 
 **Status:** Active  
-**Applies to:** All Zantrix-family products (Zanflow and future apps)  
+**Applies to:** All Zantrix-family products (ZanFlo and future apps)  
 **Last updated:** 2026-04-14
 
 ---
@@ -10,7 +10,7 @@
 
 All Zantrix products share a house style called **"The Alabaster Terminal"** — a light theme combining the warmth of architectural stone with the precision of high-end tech interfaces. It is editorial and curated, not template-based SaaS.
 
-There is also a dark variant, **"The Gilded Node"**, held in the design folder for apps where a dark theme is appropriate. Zanflow uses the light theme.
+There is also a dark variant, **"The Gilded Node"**, held in the design folder for apps where a dark theme is appropriate. ZanFlo uses the light theme.
 
 The design folder (`/design`) is the original source. This document extracts everything needed to apply the theme consistently. **Once this document is complete and the theme is applied, the design folder can be deleted.**
 

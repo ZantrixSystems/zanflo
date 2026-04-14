@@ -5,14 +5,14 @@
  * tried in order:
  *
  *   1. Subdomain (production model)
- *      Host: riverside.zanflow.co.uk  →  extract 'riverside'  →  lookup by subdomain
+ *      Host: riverside.zanflo.com  →  extract 'riverside'  →  lookup by subdomain
  *
  *   2. X-Tenant-Slug header (fallback for workers.dev / local dev)
  *      X-Tenant-Slug: riverside  →  lookup by slug
  *
  * The fallback exists only because workers.dev does not support wildcard subdomains.
  * Once the platform is running on a real domain with a wildcard DNS record
- * (*.zanflow.co.uk → Worker), strategy 2 can be removed in this file alone.
+ * (*.zanflo.com → Worker), strategy 2 can be removed in this file alone.
  * No other file needs to change.
  *
  * Tenant status is enforced here:
@@ -42,7 +42,7 @@
  * Set to match your actual domain when deploying to production.
  * The fallback path is used automatically when the host does NOT end with this.
  */
-const PLATFORM_DOMAIN = 'zanflow.co.uk';
+const PLATFORM_DOMAIN = 'zanflo.com';
 
 /**
  * Tenant statuses that are allowed to receive API traffic.
@@ -61,8 +61,8 @@ export async function resolveTenant(request, sql) {
   const host = request.headers.get('host') ?? '';
 
   // ── Strategy 1: Subdomain from Host header (production model) ──────────────
-  // Match: <subdomain>.zanflow.co.uk
-  // Does NOT match: zanflow.co.uk (apex), zanflow.zantrixsystems.workers.dev, localhost
+  // Match: <subdomain>.zanflo.com
+  // Does NOT match: zanflo.com (apex), zanflo.zantrixsystems.workers.dev, localhost
   if (host.endsWith(`.${PLATFORM_DOMAIN}`)) {
     const subdomain = host.slice(0, host.length - PLATFORM_DOMAIN.length - 1).toLowerCase();
 

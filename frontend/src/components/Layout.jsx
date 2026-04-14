@@ -14,7 +14,7 @@ export default function Layout({ children }) {
     <div className="layout">
       <header className="layout-header">
         <Link to="/dashboard" className="layout-header-brand">
-          Zanflow
+          ZanFlo
         </Link>
         {session && (
           <nav className="layout-header-nav">

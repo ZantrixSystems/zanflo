@@ -1,5 +1,5 @@
-// Seed script — creates test tenant, user, and membership.
-// Safe to run multiple times — uses ON CONFLICT DO NOTHING.
+// Seed script — creates test tenant, users, memberships, and enables application types.
+// Safe to run multiple times — uses ON CONFLICT DO NOTHING / DO UPDATE.
 // Run: node scripts/seed.js
 
 import { neon } from '@neondatabase/serverless';
@@ -64,74 +64,99 @@ async function hashPassword(password) {
 }
 
 // ---------------------------------------------------------------------------
-// Seed
+// Seed config
 // ---------------------------------------------------------------------------
-const SEED_EMAIL    = 'admin@example.com'; // ← change this to your real email
-const SEED_NAME     = 'Platform Test Admin';
-const SEED_PASSWORD = 'ChangeMe123!';
-const TENANT_NAME   = 'Test Council';
-const TENANT_SLUG   = 'test-council';
+const TENANT_NAME   = 'Riverside Council';
+const TENANT_SLUG   = 'riverside';
 
+// Staff accounts only — applicant accounts are created via public registration
+const PLATFORM_ADMIN_EMAIL    = 'admin@platform.internal';
+const PLATFORM_ADMIN_NAME     = 'Platform Admin';
+const PLATFORM_ADMIN_PASSWORD = 'ChangeMe123!';
+
+const OFFICER_EMAIL    = 'officer@riverside.gov.uk';
+const OFFICER_NAME     = 'Test Officer';
+const OFFICER_PASSWORD = 'ChangeMe123!';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+async function upsertTenant(sql, name, slug) {
+  const rows = await sql`
+    INSERT INTO tenants (name, slug)
+    VALUES (${name}, ${slug})
+    ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name
+    RETURNING id, name, slug
+  `;
+  return rows[0];
+}
+
+async function upsertUser(sql, email, passwordHash, fullName, isPlatformAdmin) {
+  const rows = await sql`
+    INSERT INTO users (email, password_hash, full_name, is_platform_admin)
+    VALUES (${email}, ${passwordHash}, ${fullName}, ${isPlatformAdmin})
+    ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
+    RETURNING id, email
+  `;
+  return rows[0];
+}
+
+async function upsertMembership(sql, tenantId, userId, role) {
+  await sql`
+    INSERT INTO memberships (tenant_id, user_id, role)
+    VALUES (${tenantId}, ${userId}, ${role})
+    ON CONFLICT (tenant_id, user_id) DO NOTHING
+  `;
+}
+
+async function enableAllApplicationTypes(sql, tenantId) {
+  const appTypes = await sql`
+    SELECT id, slug FROM application_types WHERE is_active = true
+  `;
+  for (const appType of appTypes) {
+    await sql`
+      INSERT INTO tenant_enabled_application_types (tenant_id, application_type_id)
+      VALUES (${tenantId}, ${appType.id})
+      ON CONFLICT (tenant_id, application_type_id) DO NOTHING
+    `;
+    console.log(`  enabled application type: ${appType.slug}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Run
+// ---------------------------------------------------------------------------
 async function run() {
   const sql = neon(connectionString);
 
-  console.log('Hashing password...');
-  const passwordHash = await hashPassword(SEED_PASSWORD);
+  console.log('\nSeeding...\n');
 
   // Tenant
-  const tenants = await sql`
-    INSERT INTO tenants (name, slug)
-    VALUES (${TENANT_NAME}, ${TENANT_SLUG})
-    ON CONFLICT (slug) DO NOTHING
-    RETURNING id
-  `;
+  const tenant = await upsertTenant(sql, TENANT_NAME, TENANT_SLUG);
+  console.log(`Tenant: ${tenant.name} (${tenant.id})`);
 
-  let tenantId;
-  if (tenants.length > 0) {
-    tenantId = tenants[0].id;
-    console.log(`  created tenant: ${TENANT_NAME} (${tenantId})`);
-  } else {
-    const existing = await sql`SELECT id FROM tenants WHERE slug = ${TENANT_SLUG}`;
-    tenantId = existing[0].id;
-    console.log(`  tenant already exists: ${TENANT_NAME} (${tenantId})`);
-  }
+  // Enable application types
+  await enableAllApplicationTypes(sql, tenant.id);
 
-  // User
-  const users = await sql`
-    INSERT INTO users (email, password_hash, full_name, is_platform_admin)
-    VALUES (${SEED_EMAIL}, ${passwordHash}, ${SEED_NAME}, true)
-    ON CONFLICT (email) DO NOTHING
-    RETURNING id
-  `;
+  // Platform admin
+  console.log('\nHashing passwords...');
+  const adminHash   = await hashPassword(PLATFORM_ADMIN_PASSWORD);
+  const officerHash = await hashPassword(OFFICER_PASSWORD);
 
-  let userId;
-  if (users.length > 0) {
-    userId = users[0].id;
-    console.log(`  created user: ${SEED_EMAIL} (${userId})`);
-  } else {
-    const existing = await sql`SELECT id FROM users WHERE email = ${SEED_EMAIL}`;
-    userId = existing[0].id;
-    console.log(`  user already exists: ${SEED_EMAIL} (${userId})`);
-  }
+  const adminUser = await upsertUser(sql, PLATFORM_ADMIN_EMAIL, adminHash, PLATFORM_ADMIN_NAME, true);
+  console.log(`Platform admin: ${adminUser.email} (${adminUser.id})`);
 
-  // Membership
-  const memberships = await sql`
-    INSERT INTO memberships (tenant_id, user_id, role)
-    VALUES (${tenantId}, ${userId}, 'tenant_admin')
-    ON CONFLICT (tenant_id, user_id) DO NOTHING
-    RETURNING id
-  `;
+  // Officer + membership
+  const officerUser = await upsertUser(sql, OFFICER_EMAIL, officerHash, OFFICER_NAME, false);
+  console.log(`Officer: ${officerUser.email} (${officerUser.id})`);
+  await upsertMembership(sql, tenant.id, officerUser.id, 'officer');
+  console.log(`  membership: officer @ ${tenant.slug}`);
 
-  if (memberships.length > 0) {
-    console.log(`  created membership: tenant_admin`);
-  } else {
-    console.log(`  membership already exists`);
-  }
-
-  console.log('Seed complete.');
-  console.log(`\nLogin with:`);
-  console.log(`  email:    ${SEED_EMAIL}`);
-  console.log(`  password: ${SEED_PASSWORD}`);
+  console.log('\nSeed complete.');
+  console.log('\nStaff login credentials (change these before using in any real environment):');
+  console.log(`  Platform admin — email: ${PLATFORM_ADMIN_EMAIL}  password: ${PLATFORM_ADMIN_PASSWORD}`);
+  console.log(`  Officer        — email: ${OFFICER_EMAIL}  password: ${OFFICER_PASSWORD}`);
+  console.log('\nApplicant accounts are created via the public /applicant/register endpoint.');
 }
 
 run().catch((err) => {

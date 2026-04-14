@@ -89,12 +89,13 @@ async function login(request, env) {
 // ---------------------------------------------------------------------------
 // POST /auth/logout
 // ---------------------------------------------------------------------------
-async function logout() {
+async function logout(request) {
+  const isSecure = new URL(request.url).protocol === 'https:';
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': clearCookie(),
+      'Set-Cookie': clearCookie(isSecure),
     },
   });
 }
@@ -120,7 +121,7 @@ export async function handleAuthRoutes(request, env) {
   const { method } = request;
 
   if (method === 'POST' && url.pathname === '/auth/login')  return login(request, env);
-  if (method === 'POST' && url.pathname === '/auth/logout') return logout();
+  if (method === 'POST' && url.pathname === '/auth/logout') return logout(request);
   if (method === 'GET'  && url.pathname === '/auth/me')     return me(request, env);
 
   return null;

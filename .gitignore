@@ -2,3 +2,7 @@ node_modules/
 .dev.vars
 .wrangler/
 dist/
+
+# Frontend local-only env (has no secrets but is machine-specific)
+frontend/.env.local
+# frontend/.env.production is intentionally committed — contains only public URLs, no secrets

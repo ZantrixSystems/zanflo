@@ -69,7 +69,10 @@ export function buildCookie(token, isSecure) {
   const parts = [
     `${SESSION_COOKIE}=${token}`,
     'HttpOnly',
-    'SameSite=Lax',
+    // Cross-origin deployments (e.g. Pages + Workers on different .dev domains)
+    // require SameSite=None; Secure. On HTTP localhost, fall back to SameSite=Lax
+    // because SameSite=None requires Secure and browsers reject it on plain HTTP.
+    isSecure ? 'SameSite=None' : 'SameSite=Lax',
     'Path=/',
     `Max-Age=${MAX_AGE}`,
   ];
@@ -77,8 +80,10 @@ export function buildCookie(token, isSecure) {
   return parts.join('; ');
 }
 
-export function clearCookie() {
-  return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0`;
+export function clearCookie(isSecure = false) {
+  const sameSite = isSecure ? 'SameSite=None' : 'SameSite=Lax';
+  const secure   = isSecure ? '; Secure' : '';
+  return `${SESSION_COOKIE}=; HttpOnly; ${sameSite}; Path=/; Max-Age=0${secure}`;
 }
 
 export function getCookieValue(request, name) {

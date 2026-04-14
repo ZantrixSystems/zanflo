@@ -1,4 +1,31 @@
+/**
+ * Applications routes — applicant-facing.
+ *
+ * All routes require an applicant session.
+ * All queries are scoped to both tenant_id AND applicant_account_id —
+ * an applicant can never see another applicant's applications,
+ * even within the same tenant.
+ *
+ * Routes:
+ *   POST /applications                — start a new draft
+ *   GET  /applications                — list this applicant's applications
+ *   GET  /applications/:id            — get one application
+ *   PUT  /applications/:id            — update a draft
+ *   POST /applications/:id/submit     — submit (transition from draft)
+ *
+ * Field groups (the general form):
+ *   Applicant info:  applicant_name, applicant_email, applicant_phone
+ *   Premises info:   premises_name, premises_address, premises_postcode, premises_description
+ *   Contact info:    contact_name, contact_email, contact_phone
+ *   (contact = the person councils should correspond with — may differ from applicant)
+ *
+ * application_type_id is required at creation.
+ * All other fields can be saved as drafts in any order.
+ */
+
 import { getDb } from '../db/client.js';
+import { getApplicantSession } from '../lib/applicant-session.js';
+import { writeAuditLog } from '../lib/audit.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -15,34 +42,22 @@ function error(message, status = 400) {
   return json({ error: message }, status);
 }
 
-/**
- * Extract tenant_id from the request.
- * Placeholder until auth is implemented — expects X-Tenant-Id header.
- */
-function getTenantId(request) {
-  const tenantId = request.headers.get('X-Tenant-Id');
-  if (!tenantId) return null;
-  return tenantId;
-}
-
+// Fields required before submission (not required for draft save)
 const SUBMIT_REQUIRED_FIELDS = [
   'applicant_name',
   'applicant_email',
   'premises_name',
   'premises_address',
+  'premises_postcode',
 ];
 
 // ---------------------------------------------------------------------------
-// Route handlers
+// POST /applications
+// Start a new draft application. application_type_id required.
 // ---------------------------------------------------------------------------
-
-/**
- * POST /applications
- * Create a new draft application.
- */
 async function createApplication(request, env) {
-  const tenantId = getTenantId(request);
-  if (!tenantId) return error('Missing X-Tenant-Id header', 401);
+  const session = await getApplicantSession(request, env.JWT_SECRET);
+  if (!session) return error('Not authenticated', 401);
 
   let body;
   try {
@@ -51,71 +66,138 @@ async function createApplication(request, env) {
     return error('Invalid JSON body');
   }
 
-  const {
-    applicant_name,
-    applicant_email,
-    applicant_phone,
-    premises_name,
-    premises_address,
-    premises_description,
-  } = body;
+  const { application_type_id } = body;
+  if (!application_type_id) return error('application_type_id is required');
 
   const sql = getDb(env);
+
+  // Verify the application type is enabled for this tenant
+  const typeCheck = await sql`
+    SELECT at.id
+    FROM application_types at
+    INNER JOIN tenant_enabled_application_types teat
+      ON teat.application_type_id = at.id
+      AND teat.tenant_id = ${session.tenant_id}
+    WHERE at.id = ${application_type_id}
+      AND at.is_active = true
+  `;
+  if (typeCheck.length === 0) return error('Application type not available for this tenant', 400);
 
   const rows = await sql`
     INSERT INTO applications (
       tenant_id,
+      applicant_account_id,
+      application_type_id,
       applicant_name,
       applicant_email,
       applicant_phone,
       premises_name,
       premises_address,
+      premises_postcode,
       premises_description,
+      contact_name,
+      contact_email,
+      contact_phone,
       status
     ) VALUES (
-      ${tenantId},
-      ${applicant_name ?? null},
-      ${applicant_email ?? null},
-      ${applicant_phone ?? null},
-      ${premises_name ?? null},
-      ${premises_address ?? null},
-      ${premises_description ?? null},
+      ${session.tenant_id},
+      ${session.applicant_account_id},
+      ${application_type_id},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
+      ${null},
       'draft'
     )
     RETURNING *
   `;
 
-  return json(rows[0], 201);
+  const application = rows[0];
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  'applicant',
+    actorId:    session.applicant_account_id,
+    action:     'application.created',
+    recordType: 'application',
+    recordId:   application.id,
+    meta:       { application_type_id },
+  });
+
+  return json(application, 201);
 }
 
-/**
- * GET /applications/:id
- * Fetch a single application scoped to the tenant.
- */
-async function getApplication(request, env, id) {
-  const tenantId = getTenantId(request);
-  if (!tenantId) return error('Missing X-Tenant-Id header', 401);
+// ---------------------------------------------------------------------------
+// GET /applications
+// List this applicant's applications for this tenant.
+// ---------------------------------------------------------------------------
+async function listApplications(request, env) {
+  const session = await getApplicantSession(request, env.JWT_SECRET);
+  if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);
 
   const rows = await sql`
-    SELECT *
-    FROM applications
-    WHERE id = ${id}
-      AND tenant_id = ${tenantId}
+    SELECT
+      a.id,
+      a.status,
+      a.applicant_name,
+      a.premises_name,
+      a.created_at,
+      a.updated_at,
+      a.submitted_at,
+      at.name  AS application_type_name,
+      at.slug  AS application_type_slug
+    FROM applications a
+    LEFT JOIN application_types at ON at.id = a.application_type_id
+    WHERE a.tenant_id            = ${session.tenant_id}
+      AND a.applicant_account_id = ${session.applicant_account_id}
+    ORDER BY a.updated_at DESC
+  `;
+
+  return json({ applications: rows });
+}
+
+// ---------------------------------------------------------------------------
+// GET /applications/:id
+// Fetch a single application — double-scoped to tenant AND applicant.
+// ---------------------------------------------------------------------------
+async function getApplication(request, env, id) {
+  const session = await getApplicantSession(request, env.JWT_SECRET);
+  if (!session) return error('Not authenticated', 401);
+
+  const sql = getDb(env);
+
+  const rows = await sql`
+    SELECT
+      a.*,
+      at.name AS application_type_name,
+      at.slug AS application_type_slug
+    FROM applications a
+    LEFT JOIN application_types at ON at.id = a.application_type_id
+    WHERE a.id                   = ${id}
+      AND a.tenant_id            = ${session.tenant_id}
+      AND a.applicant_account_id = ${session.applicant_account_id}
   `;
 
   if (rows.length === 0) return error('Not found', 404);
   return json(rows[0]);
 }
 
-/**
- * PUT /applications/:id
- * Update a draft application. Submitted applications are locked.
- */
+// ---------------------------------------------------------------------------
+// PUT /applications/:id
+// Save draft fields. Only allowed while status = draft.
+// Accepts any subset of form fields — partial saves are valid.
+// ---------------------------------------------------------------------------
 async function updateApplication(request, env, id) {
-  const tenantId = getTenantId(request);
-  if (!tenantId) return error('Missing X-Tenant-Id header', 401);
+  const session = await getApplicantSession(request, env.JWT_SECRET);
+  if (!session) return error('Not authenticated', 401);
 
   let body;
   try {
@@ -126,16 +208,19 @@ async function updateApplication(request, env, id) {
 
   const sql = getDb(env);
 
-  // Fetch existing — enforce tenant scope and check status
+  // Fetch and enforce ownership + tenant scope
   const existing = await sql`
     SELECT id, status
     FROM applications
-    WHERE id = ${id}
-      AND tenant_id = ${tenantId}
+    WHERE id                   = ${id}
+      AND tenant_id            = ${session.tenant_id}
+      AND applicant_account_id = ${session.applicant_account_id}
   `;
 
   if (existing.length === 0) return error('Not found', 404);
-  if (existing[0].status !== 'draft') return error('Submitted applications cannot be edited', 409);
+  if (existing[0].status !== 'draft') {
+    return error('Only draft applications can be edited', 409);
+  }
 
   const {
     applicant_name,
@@ -143,51 +228,76 @@ async function updateApplication(request, env, id) {
     applicant_phone,
     premises_name,
     premises_address,
+    premises_postcode,
     premises_description,
+    contact_name,
+    contact_email,
+    contact_phone,
   } = body;
+
+  // COALESCE pattern: only overwrite fields that are explicitly provided.
+  // A null value in the body means "clear this field".
+  // An absent key leaves the existing DB value unchanged.
+  // We detect "explicitly provided" vs "absent" by checking hasOwnProperty.
+  const has = (field) => Object.prototype.hasOwnProperty.call(body, field);
 
   const rows = await sql`
     UPDATE applications
     SET
-      applicant_name       = COALESCE(${applicant_name ?? null}, applicant_name),
-      applicant_email      = COALESCE(${applicant_email ?? null}, applicant_email),
-      applicant_phone      = COALESCE(${applicant_phone ?? null}, applicant_phone),
-      premises_name        = COALESCE(${premises_name ?? null}, premises_name),
-      premises_address     = COALESCE(${premises_address ?? null}, premises_address),
-      premises_description = COALESCE(${premises_description ?? null}, premises_description),
-      updated_at           = NOW()
-    WHERE id = ${id}
-      AND tenant_id = ${tenantId}
+      applicant_name        = ${has('applicant_name')        ? (applicant_name        ?? null) : sql`applicant_name`},
+      applicant_email       = ${has('applicant_email')       ? (applicant_email       ?? null) : sql`applicant_email`},
+      applicant_phone       = ${has('applicant_phone')       ? (applicant_phone       ?? null) : sql`applicant_phone`},
+      premises_name         = ${has('premises_name')         ? (premises_name         ?? null) : sql`premises_name`},
+      premises_address      = ${has('premises_address')      ? (premises_address      ?? null) : sql`premises_address`},
+      premises_postcode     = ${has('premises_postcode')     ? (premises_postcode     ?? null) : sql`premises_postcode`},
+      premises_description  = ${has('premises_description')  ? (premises_description  ?? null) : sql`premises_description`},
+      contact_name          = ${has('contact_name')          ? (contact_name          ?? null) : sql`contact_name`},
+      contact_email         = ${has('contact_email')         ? (contact_email         ?? null) : sql`contact_email`},
+      contact_phone         = ${has('contact_phone')         ? (contact_phone         ?? null) : sql`contact_phone`},
+      updated_at            = NOW()
+    WHERE id                   = ${id}
+      AND tenant_id            = ${session.tenant_id}
+      AND applicant_account_id = ${session.applicant_account_id}
     RETURNING *
   `;
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  'applicant',
+    actorId:    session.applicant_account_id,
+    action:     'application.draft_saved',
+    recordType: 'application',
+    recordId:   id,
+  });
 
   return json(rows[0]);
 }
 
-/**
- * POST /applications/:id/submit
- * Validate required fields then transition status to submitted.
- */
+// ---------------------------------------------------------------------------
+// POST /applications/:id/submit
+// Validate required fields then transition to submitted.
+// ---------------------------------------------------------------------------
 async function submitApplication(request, env, id) {
-  const tenantId = getTenantId(request);
-  if (!tenantId) return error('Missing X-Tenant-Id header', 401);
+  const session = await getApplicantSession(request, env.JWT_SECRET);
+  if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);
 
   const existing = await sql`
     SELECT *
     FROM applications
-    WHERE id = ${id}
-      AND tenant_id = ${tenantId}
+    WHERE id                   = ${id}
+      AND tenant_id            = ${session.tenant_id}
+      AND applicant_account_id = ${session.applicant_account_id}
   `;
 
   if (existing.length === 0) return error('Not found', 404);
-
   const app = existing[0];
 
-  if (app.status !== 'draft') return error('Application has already been submitted', 409);
+  if (app.status !== 'draft') {
+    return error('Application has already been submitted', 409);
+  }
 
-  // Validate required fields are populated
   const missing = SUBMIT_REQUIRED_FIELDS.filter((field) => !app[field]);
   if (missing.length > 0) {
     return error(`Missing required fields: ${missing.join(', ')}`, 400);
@@ -199,10 +309,20 @@ async function submitApplication(request, env, id) {
       status       = 'submitted',
       submitted_at = NOW(),
       updated_at   = NOW()
-    WHERE id = ${id}
-      AND tenant_id = ${tenantId}
+    WHERE id                   = ${id}
+      AND tenant_id            = ${session.tenant_id}
+      AND applicant_account_id = ${session.applicant_account_id}
     RETURNING *
   `;
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  'applicant',
+    actorId:    session.applicant_account_id,
+    action:     'application.submitted',
+    recordType: 'application',
+    recordId:   id,
+  });
 
   return json(rows[0]);
 }
@@ -210,17 +330,18 @@ async function submitApplication(request, env, id) {
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
-
 export async function handleApplicationRoutes(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
-  // POST /applications
   if (method === 'POST' && url.pathname === '/applications') {
     return createApplication(request, env);
   }
 
-  // Match /applications/:id
+  if (method === 'GET' && url.pathname === '/applications') {
+    return listApplications(request, env);
+  }
+
   const idMatch = url.pathname.match(/^\/applications\/([^/]+)$/);
   if (idMatch) {
     const id = idMatch[1];
@@ -228,11 +349,10 @@ export async function handleApplicationRoutes(request, env) {
     if (method === 'PUT') return updateApplication(request, env, id);
   }
 
-  // Match /applications/:id/submit
   const submitMatch = url.pathname.match(/^\/applications\/([^/]+)\/submit$/);
   if (submitMatch && method === 'POST') {
     return submitApplication(request, env, submitMatch[1]);
   }
 
-  return error('Not found', 404);
+  return null;
 }

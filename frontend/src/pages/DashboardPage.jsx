@@ -24,7 +24,8 @@ export default function DashboardPage() {
   const [loadingTypes,  setLoadingTypes]  = useState(true);
   const [loadingApps,   setLoadingApps]   = useState(true);
   const [error,         setError]         = useState('');
-  const [starting,      setStarting]      = useState(null); // type id being started
+  const [starting,      setStarting]      = useState(null);  // type id being started
+  const [deleting,      setDeleting]      = useState(null);  // app id being deleted
 
   useEffect(() => {
     api.getApplicationTypes()
@@ -37,6 +38,20 @@ export default function DashboardPage() {
       .catch(() => setError('Could not load your applications.'))
       .finally(() => setLoadingApps(false));
   }, []);
+
+  async function deleteDraft(e, appId) {
+    e.preventDefault();
+    if (!window.confirm('Delete this draft? This cannot be undone.')) return;
+    setDeleting(appId);
+    try {
+      await api.deleteApplication(appId);
+      setApplications((prev) => prev.filter((a) => a.id !== appId));
+    } catch (err) {
+      setError(err.message || 'Could not delete draft.');
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   async function startApplication(typeId) {
     setStarting(typeId);
@@ -117,6 +132,16 @@ export default function DashboardPage() {
                     <span className={`status-tag status-${app.status}`}>
                       {statusLabel(app.status)}
                     </span>
+                    {app.status === 'draft' && (
+                      <button
+                        className="btn btn-danger btn-sm"
+                        onClick={(e) => deleteDraft(e, app.id)}
+                        disabled={deleting === app.id}
+                        style={{ marginLeft: 12 }}
+                      >
+                        {deleting === app.id ? 'Deleting…' : 'Delete'}
+                      </button>
+                    )}
                   </Link>
                 ))}
               </div>

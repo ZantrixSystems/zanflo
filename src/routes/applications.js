@@ -103,8 +103,8 @@ async function createApplication(request, env) {
       ${session.tenant_id},
       ${session.applicant_account_id},
       ${application_type_id},
-      ${null},
-      ${null},
+      ${session.full_name},
+      ${session.email},
       ${null},
       ${null},
       ${null},
@@ -223,8 +223,6 @@ async function updateApplication(request, env, id) {
   }
 
   const {
-    applicant_name,
-    applicant_email,
     applicant_phone,
     premises_name,
     premises_address,
@@ -235,17 +233,13 @@ async function updateApplication(request, env, id) {
     contact_phone,
   } = body;
 
-  // COALESCE pattern: only overwrite fields that are explicitly provided.
-  // A null value in the body means "clear this field".
-  // An absent key leaves the existing DB value unchanged.
-  // We detect "explicitly provided" vs "absent" by checking hasOwnProperty.
+  // applicant_name and applicant_email are locked at creation from the account —
+  // they are legal identity fields and must never be overwritten via the form.
   const has = (field) => Object.prototype.hasOwnProperty.call(body, field);
 
   const rows = await sql`
     UPDATE applications
     SET
-      applicant_name        = ${has('applicant_name')        ? (applicant_name        ?? null) : sql`applicant_name`},
-      applicant_email       = ${has('applicant_email')       ? (applicant_email       ?? null) : sql`applicant_email`},
       applicant_phone       = ${has('applicant_phone')       ? (applicant_phone       ?? null) : sql`applicant_phone`},
       premises_name         = ${has('premises_name')         ? (premises_name         ?? null) : sql`premises_name`},
       premises_address      = ${has('premises_address')      ? (premises_address      ?? null) : sql`premises_address`},

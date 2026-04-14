@@ -1,28 +1,19 @@
 /**
  * Application general form page.
  *
- * Three sections:
- *   1. Applicant details (who is applying)
- *   2. Premises details (what/where is being licensed)
- *   3. Contact details (who the council should contact — may differ from applicant)
+ * Applicant name and email are locked from the account — they are legal identity
+ * fields and cannot differ from the registered account holder.
+ * Phone is pre-filled but editable (not required at registration).
  *
- * Design decisions:
- * - Single-page, section-based (not a multi-step wizard).
- *   Reason: the general form is short enough that all sections fit comfortably
- *   on one page. The applicant can see the full scope at a glance.
- *   A stepper would add navigation complexity for no UX gain at this scope.
- *
- * - Auto-save is NOT implemented. Explicit "Save draft" button only.
- *   Reason: auto-save requires debounce + conflict handling + optimistic UI.
- *   That is worth doing in a later iteration. Explicit save is safe and honest.
- *
- * - Submit is a separate action with a visible confirmation.
- *   Once submitted, the form becomes read-only.
+ * Contact details default to the applicant's own details on a new application
+ * but are fully editable — for cases where a solicitor or agent is acting
+ * on behalf of the applicant.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import { useAuth } from '../auth-context.jsx';
 import Layout from '../components/Layout.jsx';
 
 function formatDate(iso) {
@@ -36,33 +27,39 @@ function formatDate(iso) {
   });
 }
 
-// Fields that are part of the form — maps to the backend schema
-const FORM_FIELDS = [
-  'applicant_name', 'applicant_email', 'applicant_phone',
+// Fields the applicant can edit — name and email are excluded (locked from account)
+const EDITABLE_FIELDS = [
+  'applicant_phone',
   'premises_name', 'premises_address', 'premises_postcode', 'premises_description',
   'contact_name', 'contact_email', 'contact_phone',
 ];
 
 export default function ApplicationPage() {
-  const { id }   = useParams();
-  const navigate = useNavigate();
+  const { id }      = useParams();
+  const navigate    = useNavigate();
+  const { session } = useAuth();
 
   const [application, setApplication] = useState(null);
   const [formData,    setFormData]     = useState({});
   const [loading,     setLoading]      = useState(true);
   const [saving,      setSaving]       = useState(false);
   const [submitting,  setSubmitting]   = useState(false);
-  const [saveStatus,  setSaveStatus]   = useState(''); // '' | 'saved' | 'error'
+  const [saveStatus,  setSaveStatus]   = useState('');
   const [error,       setError]        = useState('');
 
-  // Load application
   useEffect(() => {
     api.getApplication(id)
       .then((app) => {
         setApplication(app);
-        // Populate form with existing data
+
         const fields = {};
-        FORM_FIELDS.forEach((f) => { fields[f] = app[f] ?? ''; });
+        EDITABLE_FIELDS.forEach((f) => { fields[f] = app[f] ?? ''; });
+
+        // Default contact fields to applicant's own details if not yet set
+        // — common case is the applicant is also the contact
+        if (!app.contact_name)  fields.contact_name  = session?.full_name ?? '';
+        if (!app.contact_email) fields.contact_email = session?.email     ?? '';
+
         setFormData(fields);
       })
       .catch((err) => {
@@ -70,7 +67,7 @@ export default function ApplicationPage() {
         else setError('Could not load application.');
       })
       .finally(() => setLoading(false));
-  }, [id, navigate]);
+  }, [id, navigate, session]);
 
   const isDraft = application?.status === 'draft';
 
@@ -78,16 +75,14 @@ export default function ApplicationPage() {
     return (e) => setFormData((f) => ({ ...f, [field]: e.target.value }));
   }
 
-  // Save draft — sends only non-empty changes (backend handles partial updates)
   const saveDraft = useCallback(async () => {
     if (!isDraft) return;
     setSaving(true);
     setSaveStatus('');
     setError('');
 
-    // Convert empty strings to null for clean storage
     const payload = {};
-    FORM_FIELDS.forEach((f) => {
+    EDITABLE_FIELDS.forEach((f) => {
       payload[f] = formData[f]?.trim() || null;
     });
 
@@ -106,12 +101,11 @@ export default function ApplicationPage() {
 
   async function handleSubmit() {
     if (!isDraft) return;
-    // Save first, then submit
     setSaving(true);
     setError('');
 
     const payload = {};
-    FORM_FIELDS.forEach((f) => {
+    EDITABLE_FIELDS.forEach((f) => {
       payload[f] = formData[f]?.trim() || null;
     });
 
@@ -167,7 +161,7 @@ export default function ApplicationPage() {
 
       {isReadOnly && (
         <div className="alert alert-success" style={{ marginBottom: 24 }}>
-          This application has been submitted. It cannot be edited.
+          This application has been submitted and cannot be edited.
         </div>
       )}
 
@@ -177,35 +171,35 @@ export default function ApplicationPage() {
         <section className="form-section">
           <h2 className="form-section-title">Applicant details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
-            The person or organisation applying for the licence.
+            The person or organisation legally making this application.
           </p>
 
           <div className="form-group">
-            <label htmlFor="applicant_name">
-              Full name or organisation name <Required />
-            </label>
+            <label htmlFor="applicant_name">Full name or organisation name</label>
             <input
               id="applicant_name"
               type="text"
-              value={formData.applicant_name}
-              onChange={set('applicant_name')}
-              disabled={isReadOnly}
-              autoComplete="name"
+              value={session?.full_name ?? ''}
+              disabled
+              aria-describedby="applicant_name_hint"
             />
+            <span className="form-hint" id="applicant_name_hint">
+              This is your registered name and cannot be changed here.
+            </span>
           </div>
 
           <div className="form-group">
-            <label htmlFor="applicant_email">
-              Email address <Required />
-            </label>
+            <label htmlFor="applicant_email">Email address</label>
             <input
               id="applicant_email"
               type="email"
-              value={formData.applicant_email}
-              onChange={set('applicant_email')}
-              disabled={isReadOnly}
-              autoComplete="email"
+              value={session?.email ?? ''}
+              disabled
+              aria-describedby="applicant_email_hint"
             />
+            <span className="form-hint" id="applicant_email_hint">
+              This is your registered email and cannot be changed here.
+            </span>
           </div>
 
           <div className="form-group">
@@ -215,7 +209,7 @@ export default function ApplicationPage() {
             <input
               id="applicant_phone"
               type="tel"
-              value={formData.applicant_phone}
+              value={formData.applicant_phone ?? ''}
               onChange={set('applicant_phone')}
               disabled={isReadOnly}
               autoComplete="tel"
@@ -237,7 +231,7 @@ export default function ApplicationPage() {
             <input
               id="premises_name"
               type="text"
-              value={formData.premises_name}
+              value={formData.premises_name ?? ''}
               onChange={set('premises_name')}
               disabled={isReadOnly}
             />
@@ -249,7 +243,7 @@ export default function ApplicationPage() {
             </label>
             <textarea
               id="premises_address"
-              value={formData.premises_address}
+              value={formData.premises_address ?? ''}
               onChange={set('premises_address')}
               disabled={isReadOnly}
               rows={3}
@@ -263,7 +257,7 @@ export default function ApplicationPage() {
             <input
               id="premises_postcode"
               type="text"
-              value={formData.premises_postcode}
+              value={formData.premises_postcode ?? ''}
               onChange={set('premises_postcode')}
               disabled={isReadOnly}
               style={{ maxWidth: 160 }}
@@ -272,11 +266,11 @@ export default function ApplicationPage() {
 
           <div className="form-group">
             <label htmlFor="premises_description">
-              Description of premises <Optional />
+              Description <Optional />
             </label>
             <textarea
               id="premises_description"
-              value={formData.premises_description}
+              value={formData.premises_description ?? ''}
               onChange={set('premises_description')}
               disabled={isReadOnly}
               rows={3}
@@ -291,8 +285,9 @@ export default function ApplicationPage() {
         <section className="form-section">
           <h2 className="form-section-title">Contact details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
-            The person the council should contact about this application.
-            This may be a solicitor, agent, or the applicant themselves.
+            Who should the council contact about this application?
+            If you are acting through a solicitor or agent, enter their details here.
+            Otherwise leave as your own.
           </p>
 
           <div className="form-group">
@@ -302,7 +297,7 @@ export default function ApplicationPage() {
             <input
               id="contact_name"
               type="text"
-              value={formData.contact_name}
+              value={formData.contact_name ?? ''}
               onChange={set('contact_name')}
               disabled={isReadOnly}
             />
@@ -315,7 +310,7 @@ export default function ApplicationPage() {
             <input
               id="contact_email"
               type="email"
-              value={formData.contact_email}
+              value={formData.contact_email ?? ''}
               onChange={set('contact_email')}
               disabled={isReadOnly}
             />
@@ -328,7 +323,7 @@ export default function ApplicationPage() {
             <input
               id="contact_phone"
               type="tel"
-              value={formData.contact_phone}
+              value={formData.contact_phone ?? ''}
               onChange={set('contact_phone')}
               disabled={isReadOnly}
             />

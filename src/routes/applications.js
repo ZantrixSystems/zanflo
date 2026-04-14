@@ -334,22 +334,22 @@ export async function handleApplicationRoutes(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
-  if (method === 'POST' && url.pathname === '/applications') {
+  if (method === 'POST' && url.pathname === '/api/applications') {
     return createApplication(request, env);
   }
 
-  if (method === 'GET' && url.pathname === '/applications') {
+  if (method === 'GET' && url.pathname === '/api/applications') {
     return listApplications(request, env);
   }
 
-  const idMatch = url.pathname.match(/^\/applications\/([^/]+)$/);
+  const idMatch = url.pathname.match(/^\/api\/applications\/([^/]+)$/);
   if (idMatch) {
     const id = idMatch[1];
     if (method === 'GET') return getApplication(request, env, id);
     if (method === 'PUT') return updateApplication(request, env, id);
   }
 
-  const submitMatch = url.pathname.match(/^\/applications\/([^/]+)\/submit$/);
+  const submitMatch = url.pathname.match(/^\/api\/applications\/([^/]+)\/submit$/);
   if (submitMatch && method === 'POST') {
     return submitApplication(request, env, submitMatch[1]);
   }

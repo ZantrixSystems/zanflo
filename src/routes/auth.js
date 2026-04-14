@@ -67,7 +67,6 @@ async function login(request, env) {
   };
 
   const token = await signSession(payload, env.JWT_SECRET);
-  const isSecure = new URL(request.url).protocol === 'https:';
 
   return json(
     {
@@ -82,20 +81,19 @@ async function login(request, env) {
       role:        membership?.role         ?? null,
     },
     200,
-    { 'Set-Cookie': buildCookie(token, isSecure) }
+    { 'Set-Cookie': buildCookie(token) }
   );
 }
 
 // ---------------------------------------------------------------------------
 // POST /auth/logout
 // ---------------------------------------------------------------------------
-async function logout(request) {
-  const isSecure = new URL(request.url).protocol === 'https:';
+async function logout() {
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': clearCookie(isSecure),
+      'Set-Cookie': clearCookie(),
     },
   });
 }
@@ -120,9 +118,9 @@ export async function handleAuthRoutes(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
-  if (method === 'POST' && url.pathname === '/auth/login')  return login(request, env);
-  if (method === 'POST' && url.pathname === '/auth/logout') return logout(request);
-  if (method === 'GET'  && url.pathname === '/auth/me')     return me(request, env);
+  if (method === 'POST' && url.pathname === '/api/auth/login')  return login(request, env);
+  if (method === 'POST' && url.pathname === '/api/auth/logout') return logout();
+  if (method === 'GET'  && url.pathname === '/api/auth/me')     return me(request, env);
 
   return null;
 }

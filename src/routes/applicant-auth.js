@@ -45,10 +45,6 @@ function error(message, status = 400) {
   return json({ error: message }, status);
 }
 
-function isSecure(request) {
-  return new URL(request.url).protocol === 'https:';
-}
-
 /**
  * Resolve tenant from X-Tenant-Slug header.
  * Returns the tenant row or null.
@@ -142,7 +138,7 @@ async function register(request, env) {
       tenant_id: tenant.id,
     },
     201,
-    { 'Set-Cookie': buildApplicantCookie(token, isSecure(request)) }
+    { 'Set-Cookie': buildApplicantCookie(token) }
   );
 }
 
@@ -197,20 +193,19 @@ async function login(request, env) {
       tenant_id: tenant.id,
     },
     200,
-    { 'Set-Cookie': buildApplicantCookie(token, isSecure(request)) }
+    { 'Set-Cookie': buildApplicantCookie(token) }
   );
 }
 
 // ---------------------------------------------------------------------------
 // POST /applicant/logout
 // ---------------------------------------------------------------------------
-async function logout(request) {
-  const secure = new URL(request.url).protocol === 'https:';
+async function logout() {
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': clearApplicantCookie(secure),
+      'Set-Cookie': clearApplicantCookie(),
     },
   });
 }
@@ -232,10 +227,10 @@ export async function handleApplicantAuthRoutes(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
-  if (method === 'POST' && url.pathname === '/applicant/register') return register(request, env);
-  if (method === 'POST' && url.pathname === '/applicant/login')    return login(request, env);
-  if (method === 'POST' && url.pathname === '/applicant/logout')   return logout(request);
-  if (method === 'GET'  && url.pathname === '/applicant/me')       return me(request, env);
+  if (method === 'POST' && url.pathname === '/api/applicant/register') return register(request, env);
+  if (method === 'POST' && url.pathname === '/api/applicant/login')    return login(request, env);
+  if (method === 'POST' && url.pathname === '/api/applicant/logout')   return logout();
+  if (method === 'GET'  && url.pathname === '/api/applicant/me')       return me(request, env);
 
   return null;
 }

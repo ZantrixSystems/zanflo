@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "build": "npm --prefix frontend run build",
+    "deploy": "npm run build && wrangler deploy",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js"
   },
@@ -13,6 +14,6 @@
     "@neondatabase/serverless": "^0.9.0"
   },
   "devDependencies": {
-    "wrangler": "^3.0.0"
+    "wrangler": "^4.82.2"
   }
 }

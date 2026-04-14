@@ -1,21 +1,20 @@
 /**
- * API client for the backend.
+ * API client.
  *
- * All requests:
- * - include credentials (session cookie)
- * - send X-Tenant-Slug header (resolved from env var at build time)
- * - are JSON in, JSON out
+ * The frontend is served from the same Worker as the API,
+ * so all requests use relative /api/* paths.
+ * No VITE_API_URL env var needed — same origin, no CORS.
  *
- * VITE_API_URL and VITE_TENANT_SLUG must be set in frontend/.env.local
+ * credentials: 'same-origin' is correct and sufficient here.
+ * The X-Tenant-Slug header identifies which tenant this portal is for.
  */
 
-const API_URL    = import.meta.env.VITE_API_URL    || 'http://localhost:8787';
 const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG || 'riverside';
 
 async function request(method, path, body) {
   const opts = {
     method,
-    credentials: 'include',
+    credentials: 'same-origin',
     headers: {
       'Content-Type':  'application/json',
       'X-Tenant-Slug': TENANT_SLUG,
@@ -26,9 +25,8 @@ async function request(method, path, body) {
     opts.body = JSON.stringify(body);
   }
 
-  const res = await fetch(`${API_URL}${path}`, opts);
+  const res = await fetch(path, opts);
 
-  // Parse JSON regardless of status — the body always tells us what went wrong
   let data;
   try {
     data = await res.json();
@@ -48,18 +46,18 @@ async function request(method, path, body) {
 
 export const api = {
   // Applicant auth
-  register: (body)   => request('POST', '/applicant/register', body),
-  login:    (body)   => request('POST', '/applicant/login', body),
-  logout:   ()       => request('POST', '/applicant/logout'),
-  me:       ()       => request('GET',  '/applicant/me'),
+  register: (body) => request('POST', '/api/applicant/register', body),
+  login:    (body) => request('POST', '/api/applicant/login', body),
+  logout:   ()     => request('POST', '/api/applicant/logout'),
+  me:       ()     => request('GET',  '/api/applicant/me'),
 
   // Application types
-  getApplicationTypes: () => request('GET', '/application-types'),
+  getApplicationTypes: () => request('GET', '/api/application-types'),
 
   // Applications
-  createApplication:  (body) => request('POST', '/applications', body),
-  listApplications:   ()     => request('GET',  '/applications'),
-  getApplication:     (id)   => request('GET',  `/applications/${id}`),
-  updateApplication:  (id, body) => request('PUT', `/applications/${id}`, body),
-  submitApplication:  (id)   => request('POST', `/applications/${id}/submit`),
+  createApplication: (body)     => request('POST', '/api/applications', body),
+  listApplications:  ()         => request('GET',  '/api/applications'),
+  getApplication:    (id)       => request('GET',  `/api/applications/${id}`),
+  updateApplication: (id, body) => request('PUT',  `/api/applications/${id}`, body),
+  submitApplication: (id)       => request('POST', `/api/applications/${id}/submit`),
 };

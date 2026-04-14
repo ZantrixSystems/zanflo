@@ -60,7 +60,7 @@ export async function handleApplicationTypeRoutes(request, env) {
   const url = new URL(request.url);
   const { method } = request;
 
-  if (method === 'GET' && url.pathname === '/application-types') {
+  if (method === 'GET' && url.pathname === '/api/application-types') {
     return listApplicationTypes(request, env);
   }
 

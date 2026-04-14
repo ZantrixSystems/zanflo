@@ -12,12 +12,17 @@
  *   email:                string
  *   full_name:            string
  * }
+ *
+ * Same-origin deployment (Worker serves both API and frontend) means:
+ * - SameSite=Lax is correct and sufficient
+ * - Secure is always set (Workers run on HTTPS)
+ * - No cross-origin cookie gymnastics needed
  */
 
 import { signSession, verifySession, getCookieValue } from './session.js';
 
 const COOKIE_NAME = 'applicant_session';
-const MAX_AGE = 60 * 60 * 8; // 8 hours — applicant sessions are shorter than staff
+const MAX_AGE = 60 * 60 * 8; // 8 hours
 
 export async function signApplicantSession(payload, secret) {
   return signSession(payload, secret);
@@ -27,31 +32,21 @@ export async function verifyApplicantSession(token, secret) {
   return verifySession(token, secret);
 }
 
-export function buildApplicantCookie(token, isSecure) {
-  const parts = [
+export function buildApplicantCookie(token) {
+  return [
     `${COOKIE_NAME}=${token}`,
     'HttpOnly',
-    // SameSite=None required when frontend and backend are on different origins
-    // (e.g. *.pages.dev and *.workers.dev). SameSite=None requires Secure.
-    // On plain HTTP localhost, fall back to SameSite=Lax.
-    isSecure ? 'SameSite=None' : 'SameSite=Lax',
+    'SameSite=Lax',
     'Path=/',
     `Max-Age=${MAX_AGE}`,
-  ];
-  if (isSecure) parts.push('Secure');
-  return parts.join('; ');
+    'Secure',
+  ].join('; ');
 }
 
-export function clearApplicantCookie(isSecure = false) {
-  const sameSite = isSecure ? 'SameSite=None' : 'SameSite=Lax';
-  const secure   = isSecure ? '; Secure' : '';
-  return `${COOKIE_NAME}=; HttpOnly; ${sameSite}; Path=/; Max-Age=0${secure}`;
+export function clearApplicantCookie() {
+  return `${COOKIE_NAME}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0; Secure`;
 }
 
-/**
- * Extract and verify an applicant session from the request.
- * Returns the session payload or null.
- */
 export async function getApplicantSession(request, secret) {
   const token = getCookieValue(request, COOKIE_NAME);
   if (!token) return null;

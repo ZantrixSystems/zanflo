@@ -65,25 +65,19 @@ export async function verifySession(token, secret) {
   }
 }
 
-export function buildCookie(token, isSecure) {
-  const parts = [
+export function buildCookie(token) {
+  return [
     `${SESSION_COOKIE}=${token}`,
     'HttpOnly',
-    // Cross-origin deployments (e.g. Pages + Workers on different .dev domains)
-    // require SameSite=None; Secure. On HTTP localhost, fall back to SameSite=Lax
-    // because SameSite=None requires Secure and browsers reject it on plain HTTP.
-    isSecure ? 'SameSite=None' : 'SameSite=Lax',
+    'SameSite=Lax',
     'Path=/',
     `Max-Age=${MAX_AGE}`,
-  ];
-  if (isSecure) parts.push('Secure');
-  return parts.join('; ');
+    'Secure',
+  ].join('; ');
 }
 
-export function clearCookie(isSecure = false) {
-  const sameSite = isSecure ? 'SameSite=None' : 'SameSite=Lax';
-  const secure   = isSecure ? '; Secure' : '';
-  return `${SESSION_COOKIE}=; HttpOnly; ${sameSite}; Path=/; Max-Age=0${secure}`;
+export function clearCookie() {
+  return `${SESSION_COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0; Secure`;
 }
 
 export function getCookieValue(request, name) {

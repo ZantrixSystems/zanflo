@@ -4,6 +4,10 @@ import { useAuth } from '../auth-context.jsx';
 export default function Layout({ children }) {
   const { session, logout } = useAuth();
   const navigate = useNavigate();
+  const hostname = window.location.hostname.toLowerCase();
+  const isApexHost = hostname === 'zanflo.com' || hostname === 'www.zanflo.com';
+  const isPlatformHost = hostname === 'platform.zanflo.com';
+  const brandTarget = isApexHost || isPlatformHost ? '/' : '/dashboard';
 
   async function handleLogout() {
     await logout();
@@ -13,7 +17,7 @@ export default function Layout({ children }) {
   return (
     <div className="layout">
       <header className="layout-header">
-        <Link to="/dashboard" className="layout-header-brand">
+        <Link to={brandTarget} className="layout-header-brand">
           ZanFlo
         </Link>
         {session && (

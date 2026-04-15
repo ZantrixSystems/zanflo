@@ -35,6 +35,8 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
+import { RESERVED_SUBDOMAINS } from './subdomains.js';
+
 /**
  * Platform domain — the apex domain for this installation.
  * Subdomains are extracted by stripping this suffix from the Host header.
@@ -103,24 +105,3 @@ export async function resolveTenant(request, sql) {
  * Subdomains that are reserved and must never resolve to a tenant.
  * Add to this list as the platform grows.
  */
-const RESERVED_SUBDOMAINS = new Set([
-  'www',
-  'api',
-  'admin',
-  'platform',
-  'app',
-  'mail',
-  'smtp',
-  'assets',
-  'static',
-  'cdn',
-  'status',
-  'login',
-  'auth',
-  'billing',
-  'staging',
-  'dev',
-  'test',
-  'sandbox',
-  'demo',
-]);

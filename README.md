@@ -38,6 +38,7 @@ Key design decisions:
 - **Fixed workflow** — application states are defined in code, not a dynamic engine
 - **Secure by default** — all auth and validation enforced in the backend Worker
 - **Audit-first** — every mutation is logged with actor, timestamp, and change
+- **Application-layer encryption spike** — selected sensitive fields can be encrypted server-side before storage; this is not full database-at-rest CMEK
 
 ## Tech Stack
 
@@ -74,6 +75,13 @@ See [docs/roadmap/00_PLATFORM_HIGH_LEVEL_ROADMAP.md](docs/roadmap/00_PLATFORM_HI
 Backend:
 ```bash
 npx wrangler dev
+```
+
+Additional backend secrets for the current encryption spike:
+```bash
+GOOGLE_KMS_KEY_NAME=projects/.../locations/.../keyRings/.../cryptoKeys/...
+GOOGLE_SERVICE_ACCOUNT_EMAIL=...
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Frontend:

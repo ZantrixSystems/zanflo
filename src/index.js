@@ -11,6 +11,9 @@
  * Environment variables required:
  *   DATABASE_URL  — Neon Postgres connection string (secret)
  *   JWT_SECRET    — HMAC signing secret for session JWTs (secret)
+ *   GOOGLE_KMS_KEY_NAME              — Full Google KMS CryptoKey resource name
+ *   GOOGLE_SERVICE_ACCOUNT_EMAIL     — Service account email for KMS access
+ *   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY — PEM private key for that service account
  *
  * Local dev (.dev.vars):
  *   DATABASE_URL=postgres://...
@@ -22,6 +25,7 @@ import { handleApplicantAuthRoutes }   from './routes/applicant-auth.js';
 import { handleApplicationTypeRoutes } from './routes/application-types.js';
 import { handleApplicationRoutes }     from './routes/applications.js';
 import { handlePlatformAdminRoutes }   from './routes/platform-admin.js';
+import { handlePlatformPublicRoutes }  from './routes/platform-public.js';
 import { getDb }                       from './db/client.js';
 
 function json(data, status = 200) {
@@ -68,6 +72,7 @@ export default {
         (await handleApplicantAuthRoutes(request, env))   ??
         (await handleApplicationTypeRoutes(request, env)) ??
         (await handleApplicationRoutes(request, env))     ??
+        (await handlePlatformPublicRoutes(request, env))  ??
         (await handlePlatformAdminRoutes(request, env))   ??
         json({ error: 'Not found' }, 404);
 

@@ -26,6 +26,10 @@
 import { getDb } from '../db/client.js';
 import { getApplicantSession } from '../lib/applicant-session.js';
 import { writeAuditLog } from '../lib/audit.js';
+import {
+  encryptApplicationApplicantPhone,
+  serialiseApplicationForResponse,
+} from '../lib/field-encryption.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -146,7 +150,7 @@ async function createApplication(request, env) {
     meta:       { application_type_id },
   });
 
-  return json(application, 201);
+  return json(await serialiseApplicationForResponse(application, env), 201);
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +210,7 @@ async function getApplication(request, env, id) {
   `;
 
   if (rows.length === 0) return error('Not found', 404);
-  return json(rows[0]);
+  return json(await serialiseApplicationForResponse(rows[0], env));
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +233,7 @@ async function updateApplication(request, env, id) {
 
   // Fetch and enforce ownership + tenant scope
   const existing = await sql`
-    SELECT id, status
+    SELECT id, status, tenant_id
     FROM applications
     WHERE id                   = ${id}
       AND tenant_id            = ${session.tenant_id}
@@ -255,11 +259,20 @@ async function updateApplication(request, env, id) {
   // applicant_name and applicant_email are locked at creation from the account —
   // they are legal identity fields and must never be overwritten via the form.
   const has = (field) => Object.prototype.hasOwnProperty.call(body, field);
+  const encryptedApplicantPhone = has('applicant_phone')
+    ? await encryptApplicationApplicantPhone(applicant_phone, {
+        tenantId: existing[0].tenant_id,
+        applicationId: id,
+      }, env)
+    : null;
 
   const rows = await sql`
     UPDATE applications
     SET
-      applicant_phone       = ${has('applicant_phone')       ? (applicant_phone       ?? null) : sql`applicant_phone`},
+      applicant_phone       = ${has('applicant_phone')       ? encryptedApplicantPhone.ciphertext : sql`applicant_phone`},
+      applicant_phone_kms_key_name = ${has('applicant_phone') ? encryptedApplicantPhone.kmsKeyName : sql`applicant_phone_kms_key_name`},
+      applicant_phone_kms_key_version = ${has('applicant_phone') ? encryptedApplicantPhone.kmsKeyVersion : sql`applicant_phone_kms_key_version`},
+      applicant_phone_encryption_scheme = ${has('applicant_phone') ? encryptedApplicantPhone.encryptionScheme : sql`applicant_phone_encryption_scheme`},
       premises_name         = ${has('premises_name')         ? (premises_name         ?? null) : sql`premises_name`},
       premises_address      = ${has('premises_address')      ? (premises_address      ?? null) : sql`premises_address`},
       premises_postcode     = ${has('premises_postcode')     ? (premises_postcode     ?? null) : sql`premises_postcode`},
@@ -283,7 +296,7 @@ async function updateApplication(request, env, id) {
     recordId:   id,
   });
 
-  return json(rows[0]);
+  return json(await serialiseApplicationForResponse(rows[0], env));
 }
 
 // ---------------------------------------------------------------------------
@@ -338,7 +351,7 @@ async function submitApplication(request, env, id) {
     recordId:   id,
   });
 
-  return json(rows[0]);
+  return json(await serialiseApplicationForResponse(rows[0], env));
 }
 
 // ---------------------------------------------------------------------------

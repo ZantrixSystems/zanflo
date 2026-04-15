@@ -23,6 +23,7 @@ import { getDb }        from '../db/client.js';
 import { getCookieValue, verifySession } from '../lib/session.js';
 import { hashPassword } from '../lib/passwords.js';
 import { writeAuditLog } from '../lib/audit.js';
+import { validateSubdomain } from '../lib/subdomains.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,22 +51,6 @@ async function requirePlatformAdmin(request, env) {
   if (!session) return null;
   if (!session.is_platform_admin) return null;
   return session;
-}
-
-// Reserved subdomains — must match tenant-resolver.js
-const RESERVED_SUBDOMAINS = new Set([
-  'www', 'api', 'admin', 'platform', 'app', 'mail', 'smtp',
-  'assets', 'static', 'cdn', 'status', 'login', 'auth',
-  'billing', 'staging', 'dev', 'test', 'sandbox', 'demo',
-]);
-
-const SUBDOMAIN_RE = /^[a-z0-9][a-z0-9\-]{0,61}[a-z0-9]$/;
-
-function validateSubdomain(subdomain) {
-  if (!subdomain) return 'subdomain is required';
-  if (!SUBDOMAIN_RE.test(subdomain)) return 'subdomain must be 2-63 lowercase alphanumeric characters or hyphens';
-  if (RESERVED_SUBDOMAINS.has(subdomain)) return `'${subdomain}' is a reserved subdomain`;
-  return null;
 }
 
 const VALID_STATUSES = new Set([
@@ -127,7 +112,7 @@ async function createTenant(request, env) {
     return error('slug must be lowercase alphanumeric + hyphens');
   }
 
-  const subdomainError = validateSubdomain(subdomain);
+  const subdomainError = validateSubdomain(subdomain?.trim());
   if (subdomainError) return error(subdomainError);
 
   if (!VALID_STATUSES.has(status)) return error('Invalid status');

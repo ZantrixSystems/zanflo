@@ -11,15 +11,19 @@
 
 const TENANT_SLUG = import.meta.env.VITE_TENANT_SLUG || 'riverside';
 
-async function request(method, path, body) {
+async function request(method, path, body, options = {}) {
+  const { includeTenantHeader = true } = options;
   const opts = {
     method,
     credentials: 'same-origin',
     headers: {
-      'Content-Type':  'application/json',
-      'X-Tenant-Slug': TENANT_SLUG,
+      'Content-Type': 'application/json',
     },
   };
+
+  if (includeTenantHeader) {
+    opts.headers['X-Tenant-Slug'] = TENANT_SLUG;
+  }
 
   if (body !== undefined) {
     opts.body = JSON.stringify(body);
@@ -61,4 +65,7 @@ export const api = {
   updateApplication: (id, body) => request('PUT',  `/api/applications/${id}`, body),
   submitApplication: (id)       => request('POST',   `/api/applications/${id}/submit`),
   deleteApplication: (id)       => request('DELETE', `/api/applications/${id}`),
+
+  // Platform landing
+  requestAccess: (body) => request('POST', '/api/platform/request-access', body, { includeTenantHeader: false }),
 };

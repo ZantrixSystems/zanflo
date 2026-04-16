@@ -266,26 +266,49 @@ async function updateApplication(request, env, id) {
       }, env)
     : null;
 
-  const rows = await sql`
+  // Build SET clause dynamically — neon tagged template does not support nested
+  // sql`` fragments, so we only include fields that are actually being updated.
+  const setClauses = [];
+  const params = [];
+
+  const addField = (col, value) => {
+    params.push(value ?? null);
+    setClauses.push(`${col} = $${params.length}`);
+  };
+
+  if (has('applicant_phone')) {
+    addField('applicant_phone',                  encryptedApplicantPhone.ciphertext);
+    addField('applicant_phone_kms_key_name',     encryptedApplicantPhone.kmsKeyName);
+    addField('applicant_phone_kms_key_version',  encryptedApplicantPhone.kmsKeyVersion);
+    addField('applicant_phone_encryption_scheme', encryptedApplicantPhone.encryptionScheme);
+  }
+  if (has('premises_name'))        addField('premises_name',        premises_name);
+  if (has('premises_address'))     addField('premises_address',     premises_address);
+  if (has('premises_postcode'))    addField('premises_postcode',    premises_postcode);
+  if (has('premises_description')) addField('premises_description', premises_description);
+  if (has('contact_name'))         addField('contact_name',         contact_name);
+  if (has('contact_email'))        addField('contact_email',        contact_email);
+  if (has('contact_phone'))        addField('contact_phone',        contact_phone);
+
+  setClauses.push('updated_at = NOW()');
+
+  params.push(id);
+  const idParam = `$${params.length}`;
+  params.push(session.tenant_id);
+  const tenantParam = `$${params.length}`;
+  params.push(session.applicant_account_id);
+  const accountParam = `$${params.length}`;
+
+  const query = `
     UPDATE applications
-    SET
-      applicant_phone       = ${has('applicant_phone')       ? encryptedApplicantPhone.ciphertext : sql`applicant_phone`},
-      applicant_phone_kms_key_name = ${has('applicant_phone') ? encryptedApplicantPhone.kmsKeyName : sql`applicant_phone_kms_key_name`},
-      applicant_phone_kms_key_version = ${has('applicant_phone') ? encryptedApplicantPhone.kmsKeyVersion : sql`applicant_phone_kms_key_version`},
-      applicant_phone_encryption_scheme = ${has('applicant_phone') ? encryptedApplicantPhone.encryptionScheme : sql`applicant_phone_encryption_scheme`},
-      premises_name         = ${has('premises_name')         ? (premises_name         ?? null) : sql`premises_name`},
-      premises_address      = ${has('premises_address')      ? (premises_address      ?? null) : sql`premises_address`},
-      premises_postcode     = ${has('premises_postcode')     ? (premises_postcode     ?? null) : sql`premises_postcode`},
-      premises_description  = ${has('premises_description')  ? (premises_description  ?? null) : sql`premises_description`},
-      contact_name          = ${has('contact_name')          ? (contact_name          ?? null) : sql`contact_name`},
-      contact_email         = ${has('contact_email')         ? (contact_email         ?? null) : sql`contact_email`},
-      contact_phone         = ${has('contact_phone')         ? (contact_phone         ?? null) : sql`contact_phone`},
-      updated_at            = NOW()
-    WHERE id                   = ${id}
-      AND tenant_id            = ${session.tenant_id}
-      AND applicant_account_id = ${session.applicant_account_id}
+    SET ${setClauses.join(', ')}
+    WHERE id = ${idParam}
+      AND tenant_id = ${tenantParam}
+      AND applicant_account_id = ${accountParam}
     RETURNING *
   `;
+
+  const rows = await sql(query, params);
 
   await writeAuditLog(sql, {
     tenantId:   session.tenant_id,

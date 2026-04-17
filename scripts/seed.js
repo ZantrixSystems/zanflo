@@ -98,6 +98,32 @@ async function upsertTenant(sql, name, slug) {
     VALUES (${rows[0].id}, 100, 10000)
     ON CONFLICT (tenant_id) DO NOTHING
   `;
+  await sql`
+    INSERT INTO tenant_settings (
+      tenant_id,
+      council_display_name,
+      support_contact_name,
+      support_email,
+      welcome_text,
+      public_homepage_text,
+      contact_us_text
+    )
+    VALUES (
+      ${rows[0].id},
+      ${name},
+      'Licensing Team',
+      'licensing@riverside.gov.uk',
+      ${`Welcome to ${name}'s licensing service.`},
+      'Create an applicant account to start a premises licence application online.',
+      'Use the council licensing team details if you need help with this service.'
+    )
+    ON CONFLICT (tenant_id) DO NOTHING
+  `;
+  await sql`
+    INSERT INTO tenant_sso_configs (tenant_id)
+    VALUES (${rows[0].id})
+    ON CONFLICT (tenant_id) DO NOTHING
+  `;
   return rows[0];
 }
 

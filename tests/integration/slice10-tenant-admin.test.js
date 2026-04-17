@@ -113,14 +113,24 @@ describe('slice 10 - tenant admin basics', () => {
       method: 'PUT',
       host: `${tenantA.slug}.zanflo.com`,
       cookie: cookieA,
-      body: { contact_name: 'Tenant A Contact', contact_email: 'tenant-a-contact@test-zanflo.test' },
+      body: {
+        organisation: {
+          support_contact_name: 'Tenant A Contact',
+          support_email: 'tenant-a-contact@test-zanflo.test',
+        },
+      },
     });
 
     await fetchWorker('https://example.test/api/admin/settings', {
       method: 'PUT',
       host: `${tenantB.slug}.zanflo.com`,
       cookie: cookieB,
-      body: { contact_name: 'Tenant B Contact', contact_email: 'tenant-b-contact@test-zanflo.test' },
+      body: {
+        organisation: {
+          support_contact_name: 'Tenant B Contact',
+          support_email: 'tenant-b-contact@test-zanflo.test',
+        },
+      },
     });
 
     const response = await fetchWorker('https://example.test/api/admin/audit', {
@@ -133,5 +143,71 @@ describe('slice 10 - tenant admin basics', () => {
     const json = await readJson(response);
     expect(json.audit_logs.length).toBeGreaterThan(0);
     expect(json.audit_logs.every((row) => row.actor !== 'Tenant B Contact')).toBe(true);
+  }, 10000);
+
+  it('tenant admin can save branding and SSO config without leaking the client secret back', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-tenant-settings-save' });
+    const admin = await createStaffFixture({ tenantId: tenant.id, role: 'tenant_admin' });
+    const adminCookie = await loginStaff(tenant.slug, admin.email, admin.password);
+
+    const updateResponse = await fetchWorker('https://example.test/api/admin/settings', {
+      method: 'PUT',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: adminCookie,
+      envOverrides: {
+        SECRET_ENCRYPTION_KEY: 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=',
+      },
+      body: {
+        organisation: {
+          council_name: 'Test Tenant Settings Save Council',
+          council_display_name: 'Test Tenant Settings Save Council',
+          support_contact_name: 'Licensing Team',
+          support_email: 'licensing@test-zanflo.test',
+          support_phone: '01234 567890',
+          internal_admin_name: 'Admin User',
+          internal_admin_email: admin.email,
+        },
+        branding: {
+          logo_url: 'https://example.test/logo.png',
+          welcome_text: 'Welcome to the tenant licensing service.',
+          public_homepage_text: 'Create an applicant account and begin your premises licence application.',
+          contact_us_text: 'Contact the licensing team if you need help.',
+        },
+        sso: {
+          saml_enabled: true,
+          saml_metadata_xml: '<xml>metadata</xml>',
+          saml_entity_id: 'urn:test:zanflo',
+          saml_login_url: 'https://idp.example.test/login',
+          saml_certificate: '-----BEGIN CERTIFICATE-----test-----END CERTIFICATE-----',
+          oidc_enabled: true,
+          oidc_client_id: 'client-id-123',
+          oidc_client_secret: 'secret-value-123',
+          oidc_client_secret_id: 'secret-id-1',
+          oidc_directory_id: 'directory-id-1',
+          oidc_issuer: 'https://issuer.example.test',
+          oidc_authorization_endpoint: 'https://issuer.example.test/authorize',
+          oidc_token_endpoint: 'https://issuer.example.test/token',
+          oidc_userinfo_endpoint: 'https://issuer.example.test/userinfo',
+          oidc_scopes: 'openid profile email',
+        },
+      },
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const updated = await readJson(updateResponse);
+    expect(updated.settings.branding.welcome_text).toBe('Welcome to the tenant licensing service.');
+    expect(updated.settings.sso.has_oidc_client_secret).toBe(true);
+    expect(updated.settings.sso.oidc_client_secret_hint).toBe('se...23');
+    expect(updated.settings.sso.oidc_client_secret).toBeUndefined();
+
+    const publicResponse = await fetchWorker('https://example.test/api/tenant/public-config', {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+    });
+
+    expect(publicResponse.status).toBe(200);
+    const publicJson = await readJson(publicResponse);
+    expect(publicJson.tenant.display_name).toBe('Test Tenant Settings Save Council');
+    expect(publicJson.tenant.welcome_text).toBe('Welcome to the tenant licensing service.');
   }, 10000);
 });

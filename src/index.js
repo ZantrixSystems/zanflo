@@ -30,6 +30,7 @@ import { handleAdminUserRoutes }       from './routes/admin-users.js';
 import { handlePlatformAuthRoutes }    from './routes/platform-auth.js';
 import { handlePlatformAdminRoutes }   from './routes/platform-admin.js';
 import { handleStaffAuthRoutes }       from './routes/staff-auth.js';
+import { handleTenantPublicRoutes }    from './routes/tenant-public.js';
 import { getDb }                       from './db/client.js';
 
 function json(data, status = 200) {
@@ -152,6 +153,7 @@ export default {
         (await handleStaffAuthRoutes(request, env))       ??
         (await handlePlatformAuthRoutes(request, env))    ??
         (await handleApplicationTypeRoutes(request, env)) ??
+        (await handleTenantPublicRoutes(request, env))    ??
         (await handleApplicationRoutes(request, env))     ??
         (await handleAdminApplicationRoutes(request, env)) ??
         (await handleAdminUserRoutes(request, env))       ??

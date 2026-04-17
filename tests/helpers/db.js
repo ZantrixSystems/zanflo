@@ -17,6 +17,33 @@ export async function resetTestData() {
     await client.query('BEGIN');
 
     await client.query(`
+      DELETE FROM tenant_bootstrap_tokens
+      WHERE tenant_id IN (
+        SELECT id FROM tenants WHERE slug LIKE 'test-%'
+      )
+         OR user_id IN (
+           SELECT id FROM users WHERE email LIKE '%@test-%'
+         )
+    `);
+
+    await client.query(`
+      DELETE FROM tenant_sso_configs
+      WHERE tenant_id IN (
+        SELECT id FROM tenants WHERE slug LIKE 'test-%'
+      )
+    `);
+
+    await client.query(`
+      DELETE FROM tenant_settings
+      WHERE tenant_id IN (
+        SELECT id FROM tenants WHERE slug LIKE 'test-%'
+      )
+         OR bootstrap_admin_user_id IN (
+           SELECT id FROM users WHERE email LIKE '%@test-%'
+         )
+    `);
+
+    await client.query(`
       DELETE FROM audit_logs
       WHERE tenant_id IN (
         SELECT id FROM tenants WHERE slug LIKE 'test-%'

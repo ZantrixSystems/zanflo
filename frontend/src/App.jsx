@@ -7,6 +7,8 @@ import RegisterPage from './pages/RegisterPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ApplicationPage from './pages/ApplicationPage.jsx';
 import PlatformLandingPage from './pages/PlatformLandingPage.jsx';
+import ApexCouncilSignupPage from './pages/ApexCouncilSignupPage.jsx';
+import ApexCouncilSignInPage from './pages/ApexCouncilSignInPage.jsx';
 import PlatformDashboardPage from './pages/PlatformDashboardPage.jsx';
 import PlatformLoginPage from './pages/PlatformLoginPage.jsx';
 import PlatformTenantsPage from './pages/PlatformTenantsPage.jsx';
@@ -21,6 +23,7 @@ import AdminUsersPage from './pages/AdminUsersPage.jsx';
 import AdminSettingsPage from './pages/AdminSettingsPage.jsx';
 import AdminAuditPage from './pages/AdminAuditPage.jsx';
 import TenantApplyPage from './pages/TenantApplyPage.jsx';
+import TenantBootstrapExchangePage from './pages/TenantBootstrapExchangePage.jsx';
 import TenantPublicHomePage from './pages/TenantPublicHomePage.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RequireStaffAuth from './components/RequireStaffAuth.jsx';
@@ -28,6 +31,11 @@ import RequirePlatformAuth from './components/RequirePlatformAuth.jsx';
 import { api } from './api.js';
 
 function getHostMode() {
+  const configuredMode = (import.meta.env.VITE_HOST_MODE || '').toLowerCase();
+  if (configuredMode === 'apex' || configuredMode === 'platform' || configuredMode === 'tenant') {
+    return configuredMode;
+  }
+
   const hostname = window.location.hostname.toLowerCase();
 
   if (hostname === 'zanflo.com' || hostname === 'www.zanflo.com') {
@@ -71,6 +79,8 @@ export default function App() {
     return (
       <Routes>
         <Route path="/" element={<PlatformLandingPage />} />
+        <Route path="/signup" element={<ApexCouncilSignupPage />} />
+        <Route path="/council-sign-in" element={<ApexCouncilSignInPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
@@ -131,6 +141,7 @@ export default function App() {
       <Route path="/" element={<TenantPublicHomePage />} />
       <Route path="/apply" element={<TenantApplyPage />} />
       <Route path="/admin" element={<TenantAdminLoginPage />} />
+      <Route path="/admin/bootstrap" element={<TenantBootstrapExchangePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 

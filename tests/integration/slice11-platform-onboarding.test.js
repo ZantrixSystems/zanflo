@@ -156,4 +156,36 @@ describe('slice 11 - platform manual onboarding', () => {
     });
     expect(allowedResponse.status).toBe(200);
   });
+
+  it('self-service signup can exchange a bootstrap link into a tenant staff session', async () => {
+    const signupResponse = await fetchWorker('https://example.test/api/platform/signup', {
+      method: 'POST',
+      host: 'zanflo.com',
+      body: {
+        organisation_name: 'Test Bootstrap Exchange Council',
+        subdomain_slug: 'test-bootstrap-exchange-council',
+        admin_full_name: 'Bootstrap Owner',
+        admin_email: 'bootstrap-owner@test-zanflo.test',
+        password: 'BootstrapDemoPassword123!',
+        password_confirmation: 'BootstrapDemoPassword123!',
+        accept_terms: true,
+      },
+    });
+
+    expect(signupResponse.status).toBe(201);
+    const signupJson = await readJson(signupResponse);
+    const token = signupJson.bootstrap_redirect.split('token=')[1];
+
+    const exchangeResponse = await fetchWorker('https://example.test/api/staff/bootstrap-exchange', {
+      method: 'POST',
+      host: 'test-bootstrap-exchange-council.zanflo.com',
+      body: { token },
+    });
+
+    expect(exchangeResponse.status).toBe(200);
+    expect(getCookie(exchangeResponse, 'session')).toBeTruthy();
+    const exchangeJson = await readJson(exchangeResponse);
+    expect(exchangeJson.session.role).toBe('tenant_admin');
+    expect(exchangeJson.session.tenant_slug).toBe('test-bootstrap-exchange-council');
+  });
 });

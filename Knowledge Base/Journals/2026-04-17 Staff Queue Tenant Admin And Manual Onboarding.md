@@ -75,3 +75,55 @@ Implemented MVP slices 8 to 11 on top of the previously hardened host-based runt
 - Re-ran:
   - `npm test`
   - `npm --prefix frontend run build`
+
+---
+
+## Demo Exception - Self-Service Tenant Provisioning Vertical Slice
+
+Confidence Level: High
+
+Phase: 5 - MVP Build with explicit demo exception recorded against the roadmap
+
+Reason:
+
+- the active demo requirement now needs a council to self-provision from the apex site
+- leaving manual onboarding as the only working path would have blocked the requested Riverside demo
+- the exception has been recorded in doctrine and roadmap notes to avoid silent drift
+
+What changed:
+
+- replaced apex manual-onboarding copy with a self-service council signup journey
+- added `POST /api/platform/signup` on the apex host
+- added one-time tenant bootstrap exchange on `POST /api/staff/bootstrap-exchange`
+- added tenant setup persistence for:
+  - organisation details
+  - branding and public homepage copy
+  - tenant-scoped SSO configuration
+- added tenant public config route:
+  - `GET /api/tenant/public-config`
+- added tenant bootstrap/session support without sharing cookies across subdomains
+- updated platform admin views to show bootstrap owner details for provisioned tenants
+
+Data model changes:
+
+- added `0017_tenant_settings_sso_and_bootstrap_tokens.sql`
+- new tables:
+  - `tenant_settings`
+  - `tenant_sso_configs`
+  - `tenant_bootstrap_tokens`
+
+Truthfulness notes:
+
+- live SSO sign-in is still not implemented
+- SSO settings now persist safely, with OIDC client secrets encrypted before storage when `SECRET_ENCRYPTION_KEY` is configured
+- redirect URI and logout URI guidance are shown, but no redirect/callback identity flow is claimed as working yet
+
+Verification:
+
+- `npm run migrate`
+- `npm test`
+- `npm --prefix frontend run build`
+
+Known deployment requirement:
+
+- wildcard tenant host routing now needs Cloudflare custom domain coverage for `*.zanflo.com` in addition to the apex host

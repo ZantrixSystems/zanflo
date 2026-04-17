@@ -1,9 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth-context.jsx';
+import { api } from '../api.js';
 import Layout from '../components/Layout.jsx';
 
 export default function TenantPublicHomePage() {
   const { session } = useAuth();
+  const [tenant, setTenant] = useState(null);
+
+  useEffect(() => {
+    api.getTenantPublicConfig()
+      .then((data) => setTenant(data.tenant))
+      .catch(() => setTenant(null));
+  }, []);
+
+  const councilName = tenant?.display_name || 'Council licensing portal';
 
   return (
     <Layout>
@@ -11,15 +22,15 @@ export default function TenantPublicHomePage() {
         <div className="platform-hero-copy">
           <div className="section-heading">Licensing portal</div>
           <h1 className="page-title platform-hero-title">
-            Apply for licences, track progress, and respond to council requests.
+            {tenant?.welcome_text || `Welcome to ${councilName}.`}
           </h1>
           <p className="page-subtitle platform-hero-subtitle">
-            This page is for applicants. Council staff should use the staff sign-in area for this tenant.
+            {tenant?.public_homepage_text || 'Create an applicant account, start a premises licence application, save your draft, and return later.'}
           </p>
           <div className="platform-hero-actions">
             <Link className="btn btn-primary" to="/apply">Start an application</Link>
-            <Link className="btn btn-secondary" to={session ? '/dashboard' : '/login?next=%2Fdashboard'}>
-              {session ? 'View your applications' : 'Sign in'}
+            <Link className="btn btn-secondary" to={session ? '/dashboard' : '/register?next=%2Fapply'}>
+              {session ? 'View your applications' : 'Create applicant account'}
             </Link>
           </div>
         </div>
@@ -27,11 +38,16 @@ export default function TenantPublicHomePage() {
         <div className="platform-hero-panel form-section">
           <div className="form-section-title">Before you start</div>
           <p className="platform-body-copy">
-            You can create an applicant account, save a draft, come back later, and check your application status.
+            This site belongs to <strong>{councilName}</strong>. Applicants can create their own account, save a draft, and return later.
           </p>
           <p className="platform-body-copy">
-            Council staff and tenant admins should go to <strong>/admin</strong> on this same tenant domain.
+            Council staff and tenant admins should sign in at <strong>/admin</strong> on this same council-specific site.
           </p>
+          {(tenant?.support_email || tenant?.support_phone || tenant?.support_contact_name) && (
+            <p className="platform-body-copy">
+              Contact: {[tenant.support_contact_name, tenant.support_email, tenant.support_phone].filter(Boolean).join(' | ')}
+            </p>
+          )}
         </div>
       </div>
 
@@ -39,19 +55,26 @@ export default function TenantPublicHomePage() {
         <div className="form-section-title">What you can do here</div>
         <div className="platform-feature-grid">
           <article className="platform-feature-card">
+            <h2>Create your applicant account</h2>
+            <p>Keep your own sign-in separate from council staff accounts and stay within this council&apos;s service only.</p>
+          </article>
+          <article className="platform-feature-card">
             <h2>Start online</h2>
-            <p>Begin a new application from one public entry point and save it as a draft.</p>
+            <p>Begin a new premises licence application, save it as a draft, and submit when you are ready.</p>
           </article>
           <article className="platform-feature-card">
-            <h2>Track status</h2>
-            <p>See whether your application is still a draft, submitted, under review, or awaiting information.</p>
-          </article>
-          <article className="platform-feature-card">
-            <h2>Return later</h2>
-            <p>Sign back in to continue a draft or review previous submissions for this tenant.</p>
+            <h2>Track progress</h2>
+            <p>Return later to review your drafts, submitted applications, and any requests for more information.</p>
           </article>
         </div>
       </section>
+
+      {tenant?.contact_us_text && (
+        <section className="form-section">
+          <div className="form-section-title">Need help?</div>
+          <p className="platform-body-copy">{tenant.contact_us_text}</p>
+        </section>
+      )}
     </Layout>
   );
 }

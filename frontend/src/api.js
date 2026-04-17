@@ -53,10 +53,12 @@ async function request(method, path, body, options = {}) {
 }
 
 export const api = {
+  platformSignup: (body) => request('POST', '/api/platform/signup', body, { includeTenantHeader: false }),
   register: (body) => request('POST', '/api/applicant/register', body),
   login: (body) => request('POST', '/api/applicant/login', body),
   logout: () => request('POST', '/api/applicant/logout'),
   me: () => request('GET', '/api/applicant/me'),
+  getTenantPublicConfig: () => request('GET', '/api/tenant/public-config'),
 
   getApplicationTypes: () => request('GET', '/api/application-types'),
 
@@ -86,6 +88,7 @@ export const api = {
   getAdminAudit: () => request('GET', '/api/admin/audit'),
 
   staffLogin: (body) => request('POST', '/api/staff/login', body),
+  staffBootstrapExchange: (body) => request('POST', '/api/staff/bootstrap-exchange', body),
   staffLogout: () => request('POST', '/api/staff/logout'),
   staffMe: () => request('GET', '/api/staff/me'),
 

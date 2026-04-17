@@ -60,9 +60,14 @@ async function listTenants(request, env) {
       t.contact_name, t.contact_email,
       t.trial_ends_at, t.activated_at, t.created_at,
       tl.max_staff_users, tl.max_applications,
+      ts.bootstrap_admin_user_id,
+      bu.full_name AS bootstrap_owner_name,
+      bu.email AS bootstrap_owner_email,
       (SELECT COUNT(*)::int FROM memberships m WHERE m.tenant_id = t.id) AS staff_count
     FROM tenants t
     LEFT JOIN tenant_limits tl ON tl.tenant_id = t.id
+    LEFT JOIN tenant_settings ts ON ts.tenant_id = t.id
+    LEFT JOIN users bu ON bu.id = ts.bootstrap_admin_user_id
     ORDER BY t.created_at DESC
   `;
 
@@ -134,6 +139,36 @@ async function createTenant(request, env) {
     VALUES (${tenant.id}, ${max_staff_users}, ${max_applications})
   `;
 
+  await sql`
+    INSERT INTO tenant_settings (
+      tenant_id,
+      council_display_name,
+      support_contact_name,
+      support_email,
+      internal_admin_email,
+      welcome_text,
+      public_homepage_text,
+      contact_us_text
+    )
+    VALUES (
+      ${tenant.id},
+      ${tenant.name},
+      ${contact_name?.trim() ?? null},
+      ${contact_email?.trim().toLowerCase() ?? null},
+      ${contact_email?.trim().toLowerCase() ?? null},
+      ${`Welcome to ${tenant.name}'s licensing service.`},
+      'Create an applicant account to start a premises licence application online.',
+      'Use the support details above if you need help with this service.'
+    )
+    ON CONFLICT (tenant_id) DO NOTHING
+  `;
+
+  await sql`
+    INSERT INTO tenant_sso_configs (tenant_id)
+    VALUES (${tenant.id})
+    ON CONFLICT (tenant_id) DO NOTHING
+  `;
+
   await writeAuditLog(sql, {
     tenantId:   null,
     actorType:  'platform_admin',
@@ -159,9 +194,14 @@ async function getTenant(request, env, id) {
   const rows = await sql`
     SELECT
       t.*,
+      ts.bootstrap_admin_user_id,
+      bu.full_name AS bootstrap_owner_name,
+      bu.email AS bootstrap_owner_email,
       tl.max_staff_users, tl.max_applications
     FROM tenants t
     LEFT JOIN tenant_limits tl ON tl.tenant_id = t.id
+    LEFT JOIN tenant_settings ts ON ts.tenant_id = t.id
+    LEFT JOIN users bu ON bu.id = ts.bootstrap_admin_user_id
     WHERE t.id = ${id}
   `;
 
@@ -268,6 +308,48 @@ async function createTenantAdmin(request, env, id) {
   await sql`
     INSERT INTO memberships (tenant_id, user_id, role)
     VALUES (${id}, ${user.id}, 'tenant_admin')
+  `;
+
+  await sql`
+    INSERT INTO tenant_settings (
+      tenant_id,
+      bootstrap_admin_user_id,
+      council_display_name,
+      support_email,
+      support_contact_name,
+      internal_admin_name,
+      internal_admin_email,
+      welcome_text,
+      public_homepage_text,
+      contact_us_text
+    )
+    SELECT
+      t.id,
+      ${user.id},
+      t.name,
+      COALESCE(t.contact_email, ${user.email}),
+      COALESCE(t.contact_name, ${full_name.trim()}),
+      ${full_name.trim()},
+      ${user.email},
+      ${`Welcome to ${tenantRows[0].name}'s licensing service.`},
+      'Create an applicant account to start a premises licence application online.',
+      'Use the support details above if you need help with this service.'
+    FROM tenants t
+    WHERE t.id = ${id}
+    ON CONFLICT (tenant_id) DO UPDATE
+    SET
+      bootstrap_admin_user_id = COALESCE(tenant_settings.bootstrap_admin_user_id, EXCLUDED.bootstrap_admin_user_id),
+      support_email = COALESCE(tenant_settings.support_email, EXCLUDED.support_email),
+      support_contact_name = COALESCE(tenant_settings.support_contact_name, EXCLUDED.support_contact_name),
+      internal_admin_name = COALESCE(tenant_settings.internal_admin_name, EXCLUDED.internal_admin_name),
+      internal_admin_email = COALESCE(tenant_settings.internal_admin_email, EXCLUDED.internal_admin_email),
+      updated_at = NOW()
+  `;
+
+  await sql`
+    INSERT INTO tenant_sso_configs (tenant_id)
+    VALUES (${id})
+    ON CONFLICT (tenant_id) DO NOTHING
   `;
 
   await writeAuditLog(sql, {

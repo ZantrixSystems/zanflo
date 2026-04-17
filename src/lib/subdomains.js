@@ -11,6 +11,7 @@ export const RESERVED_SUBDOMAINS = new Set([
   'www', 'api', 'admin', 'platform', 'app', 'mail', 'smtp',
   'assets', 'static', 'cdn', 'status', 'login', 'auth',
   'billing', 'staging', 'dev', 'test', 'sandbox', 'demo',
+  'support', 'root',
 ]);
 
 export const SUBDOMAIN_RE = /^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/;

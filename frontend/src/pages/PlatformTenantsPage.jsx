@@ -49,6 +49,9 @@ export default function PlatformTenantsPage() {
                   <div className="application-row-meta">
                     Staff users: {tenant.staff_count ?? 0}
                   </div>
+                  <div className="application-row-meta">
+                    Bootstrap owner: {tenant.bootstrap_owner_name || 'Not issued'} {tenant.bootstrap_owner_email ? `| ${tenant.bootstrap_owner_email}` : ''}
+                  </div>
                 </div>
               </Link>
             ))}

@@ -184,17 +184,39 @@ describe('slice 1 - auth foundation', () => {
     expect(response.status).toBe(404);
   });
 
-  it('does not expose self-service platform signup in the active runtime', async () => {
+  it('allows self-service platform signup on the apex host and returns a tenant bootstrap redirect', async () => {
     const response = await fetchWorker('https://example.test/api/platform/signup', {
       method: 'POST',
       host: 'zanflo.com',
       body: {
+        organisation_name: 'Test Self Serve Council',
+        subdomain_slug: 'test-self-serve-council',
+        admin_full_name: 'Bootstrap Admin',
+        admin_email: 'bootstrap-admin@test-zanflo.test',
+        password: 'BootstrapDemoPassword123!',
+        password_confirmation: 'BootstrapDemoPassword123!',
+        accept_terms: true,
+      },
+    });
+
+    expect(response.status).toBe(201);
+    const json = await readJson(response);
+    expect(json.tenant.hostname).toBe('test-self-serve-council.zanflo.com');
+    expect(json.bootstrap_redirect).toContain('https://test-self-serve-council.zanflo.com/admin/bootstrap?token=');
+  });
+
+  it('rejects self-service platform signup on the platform host', async () => {
+    const response = await fetchWorker('https://example.test/api/platform/signup', {
+      method: 'POST',
+      host: 'platform.zanflo.com',
+      body: {
         organisation_name: 'Blocked Council',
-        admin_name: 'Blocked Admin',
-        work_email: 'blocked@test-zanflo.test',
-        requested_subdomain: 'blocked-council',
-        username: 'blockedadmin',
-        password: 'BlockedPass123!',
+        subdomain_slug: 'test-blocked-council',
+        admin_full_name: 'Blocked Admin',
+        admin_email: 'blocked@test-zanflo.test',
+        password: 'BootstrapDemoPassword123!',
+        password_confirmation: 'BootstrapDemoPassword123!',
+        accept_terms: true,
       },
     });
 

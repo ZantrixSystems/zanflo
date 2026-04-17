@@ -61,6 +61,7 @@ export default function PlatformTenantDetailPage() {
             <p className="platform-body-copy"><strong>Slug:</strong> {tenant.slug}</p>
             <p className="platform-body-copy"><strong>Status:</strong> {tenant.status}</p>
             <p className="platform-body-copy"><strong>Contact:</strong> {tenant.contact_name || 'Not set'} {tenant.contact_email ? `| ${tenant.contact_email}` : ''}</p>
+            <p className="platform-body-copy"><strong>Bootstrap owner:</strong> {tenant.bootstrap_owner_name || 'Not issued'} {tenant.bootstrap_owner_email ? `| ${tenant.bootstrap_owner_email}` : ''}</p>
           </section>
 
           {error && <div className="alert alert-error">{error}</div>}

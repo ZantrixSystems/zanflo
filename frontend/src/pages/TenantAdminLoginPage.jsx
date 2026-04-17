@@ -19,9 +19,13 @@ export default function TenantAdminLoginPage() {
       .finally(() => setLoadingSession(false));
   }, []);
 
+  function getPostLoginTarget(role) {
+    return role === 'tenant_admin' ? '/admin/settings?setup=1' : '/admin/dashboard';
+  }
+
   useEffect(() => {
     if (session) {
-      navigate('/admin/dashboard', { replace: true });
+      navigate(getPostLoginTarget(session.role), { replace: true });
     }
   }, [navigate, session]);
 
@@ -41,7 +45,7 @@ export default function TenantAdminLoginPage() {
         role: data.role,
         is_platform_admin: data.user.is_platform_admin,
       });
-      navigate('/admin/dashboard', { replace: true });
+      navigate(getPostLoginTarget(data.role), { replace: true });
     } catch (err) {
       setError(err.message || 'Staff sign in failed.');
     } finally {

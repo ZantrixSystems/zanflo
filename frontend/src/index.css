@@ -265,6 +265,23 @@ body { min-height: 100vh; }
   box-shadow: var(--shadow-sm);
 }
 
+.soft-panel {
+  background: var(--color-surface-low);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: .9rem;
+  color: var(--color-text);
+  margin-top: 8px;
+}
+
+.checkbox-row input {
+  margin-top: 3px;
+}
+
 .form-section-title {
   font-size: .75rem;
   font-weight: 700;

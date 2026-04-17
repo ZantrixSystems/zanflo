@@ -268,6 +268,8 @@ Outputs:
 - MVP will be operated by a small internal team
 - No self-service tenant onboarding at MVP — platform admin onboards tenants manually
 - Runbook exists before any real tenant is onboarded
+- Demo exception: a self-service tenant onboarding vertical slice may be enabled when it is explicitly documented in journals and doctrine
+- This exception does not silently replace the core MVP operating model; it is a deliberate pull-forward for demonstration and validation only
 
 Outputs:
 - Ordered backlog

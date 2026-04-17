@@ -30,6 +30,9 @@ export default function LoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <p className="auth-footer" style={{ marginTop: 0, marginBottom: 24, textAlign: 'left' }}>
+          <Link to="/">Back to council homepage</Link>
+        </p>
         <h1>Sign in</h1>
         <p className="auth-subtitle">
           Sign in to continue your application or check the status of existing applications.

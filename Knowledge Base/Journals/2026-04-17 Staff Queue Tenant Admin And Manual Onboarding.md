@@ -150,3 +150,47 @@ What changed:
 Verification:
 
 - `npm --prefix frontend run build`
+
+---
+
+## Tenant Admin And Applicant Navigation Consistency Pass
+
+Confidence Level: High
+
+Reason:
+
+- the core journey was working, but navigation across the tenant admin and applicant-facing pages was uneven
+- some pages had no obvious route back to the main council admin area or the public council homepage
+- the demo now depends on a smoother end-to-end journey for both council staff and applicants
+
+What changed:
+
+- added a shared breadcrumb and section-navigation pattern inside the main frontend layout
+- applied consistent council admin navigation across:
+  - dashboard
+  - settings
+  - users
+  - audit
+  - applications
+  - application detail
+- applied consistent applicant navigation across:
+  - tenant public homepage
+  - start application
+  - applicant dashboard
+  - application detail
+- added simple return links on:
+  - applicant sign-in
+  - applicant registration
+  - tenant staff/admin sign-in
+- added direct settings-page actions back to:
+  - admin dashboard
+  - public council site
+
+Scope:
+
+- frontend-only navigation and UX pass
+- no backend behaviour or permissions changed in this slice
+
+Verification:
+
+- `npm --prefix frontend run build`

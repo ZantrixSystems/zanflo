@@ -7,6 +7,8 @@ export default function Layout({
   onSignOut,
   brandTarget: explicitBrandTarget,
   signOutTarget = '/login',
+  breadcrumbs = [],
+  navItems = [],
 }) {
   const applicantAuth = useAuth();
   const session = explicitSession ?? applicantAuth.session;
@@ -38,6 +40,48 @@ export default function Layout({
         )}
       </header>
       <main className="layout-main">
+        {(breadcrumbs.length > 0 || navItems.length > 0) && (
+          <div className="layout-shell">
+            {breadcrumbs.length > 0 && (
+              <nav className="layout-breadcrumbs" aria-label="Breadcrumb">
+                {breadcrumbs.map((crumb, index) => {
+                  const isLast = index === breadcrumbs.length - 1;
+
+                  return (
+                    <span key={`${crumb.label}-${index}`} className="layout-breadcrumb-item">
+                      {!isLast && crumb.to ? (
+                        <Link to={crumb.to}>{crumb.label}</Link>
+                      ) : (
+                        <span>{crumb.label}</span>
+                      )}
+                      {!isLast && <span className="layout-breadcrumb-separator">/</span>}
+                    </span>
+                  );
+                })}
+              </nav>
+            )}
+
+            {navItems.length > 0 && (
+              <nav className="layout-section-nav" aria-label="Section navigation">
+                {navItems.map((item) => {
+                  if (item.href) {
+                    return (
+                      <a key={item.label} href={item.href} className="layout-section-link">
+                        {item.label}
+                      </a>
+                    );
+                  }
+
+                  return (
+                    <Link key={item.label} to={item.to} className="layout-section-link">
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            )}
+          </div>
+        )}
         {children}
       </main>
     </div>

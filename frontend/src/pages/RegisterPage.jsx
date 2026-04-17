@@ -51,6 +51,9 @@ export default function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <p className="auth-footer" style={{ marginTop: 0, marginBottom: 24, textAlign: 'left' }}>
+          <Link to="/">Back to council homepage</Link>
+        </p>
         <h1>Create account</h1>
         <p className="auth-subtitle">
           Create your applicant account so you can start, save, and track applications.

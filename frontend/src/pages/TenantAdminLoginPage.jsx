@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 
@@ -61,6 +61,9 @@ export default function TenantAdminLoginPage() {
             <div className="spinner">Loading...</div>
           ) : (
             <>
+              <p className="auth-footer" style={{ marginTop: 0, marginBottom: 24, textAlign: 'left' }}>
+                <Link to="/">Back to council homepage</Link>
+              </p>
               <h1>Staff and admin sign in</h1>
               <p className="auth-subtitle">
                 This area is only for council staff and tenant admins on this tenant domain.

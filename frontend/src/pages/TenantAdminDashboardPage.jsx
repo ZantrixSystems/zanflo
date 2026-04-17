@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
+import { buildTenantAdminNav } from '../lib/navigation.js';
 
 export default function TenantAdminDashboardPage() {
   const { session, logout } = useStaffAuth();
@@ -14,7 +15,17 @@ export default function TenantAdminDashboardPage() {
   }, [session.role]);
 
   return (
-    <Layout session={session} onSignOut={logout} brandTarget="/admin/dashboard" signOutTarget="/admin">
+    <Layout
+      session={session}
+      onSignOut={logout}
+      brandTarget="/admin/dashboard"
+      signOutTarget="/admin"
+      breadcrumbs={[
+        { to: '/admin/dashboard', label: 'Council admin' },
+        { label: 'Dashboard' },
+      ]}
+      navItems={buildTenantAdminNav(session)}
+    >
       <section className="form-section">
         <div className="form-section-title">Tenant staff workspace</div>
         <h1 className="page-title">Admin dashboard</h1>

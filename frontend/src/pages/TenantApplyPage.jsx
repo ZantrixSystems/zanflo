@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth-context.jsx';
 import Layout from '../components/Layout.jsx';
+import { buildApplicantNav } from '../lib/navigation.js';
 
 export default function TenantApplyPage() {
   const navigate = useNavigate();
@@ -42,7 +43,13 @@ export default function TenantApplyPage() {
   }
 
   return (
-    <Layout>
+    <Layout
+      breadcrumbs={[
+        { to: '/', label: 'Applicant portal' },
+        { label: 'Start application' },
+      ]}
+      navItems={buildApplicantNav(session)}
+    >
       <section className="form-section">
         <div className="form-section-title">Start an application</div>
         <h1 className="page-title">Choose the licence application you want to begin.</h1>

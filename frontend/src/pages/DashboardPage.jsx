@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Layout from '../components/Layout.jsx';
+import { useAuth } from '../auth-context.jsx';
+import { buildApplicantNav } from '../lib/navigation.js';
 
 function statusLabel(status) {
   return status.replace(/_/g, ' ');
@@ -18,6 +20,7 @@ function formatDate(iso) {
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+  const { session } = useAuth();
 
   const [applications, setApplications] = useState([]);
   const [loadingApps, setLoadingApps] = useState(true);
@@ -46,7 +49,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <Layout>
+    <Layout
+      breadcrumbs={[
+        { to: '/', label: 'Applicant portal' },
+        { label: 'My applications' },
+      ]}
+      navItems={buildApplicantNav(session)}
+    >
       {error && <div className="alert alert-error">{error}</div>}
 
       {loadingApps ? (

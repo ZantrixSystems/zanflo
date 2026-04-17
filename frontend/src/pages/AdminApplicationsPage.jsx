@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
+import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function labelStatus(status) {
   return status?.replaceAll('_', ' ') || 'unknown';
@@ -40,7 +41,17 @@ export default function AdminApplicationsPage() {
   }, [status, assigned]);
 
   return (
-    <Layout session={session} onSignOut={logout} brandTarget="/admin/dashboard" signOutTarget="/admin">
+    <Layout
+      session={session}
+      onSignOut={logout}
+      brandTarget="/admin/dashboard"
+      signOutTarget="/admin"
+      breadcrumbs={[
+        { to: '/admin/dashboard', label: 'Council admin' },
+        { label: 'Applications' },
+      ]}
+      navItems={buildTenantAdminNav(session)}
+    >
       <section className="form-section">
         <div className="form-section-title">Application review queue</div>
         <h1 className="page-title">Applications</h1>

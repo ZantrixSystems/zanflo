@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
+import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function emptyForm() {
   return {
@@ -120,13 +121,31 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <Layout session={session} onSignOut={logout} brandTarget="/admin/settings" signOutTarget="/admin">
+    <Layout
+      session={session}
+      onSignOut={logout}
+      brandTarget="/admin/dashboard"
+      signOutTarget="/admin"
+      breadcrumbs={[
+        { to: '/admin/dashboard', label: 'Council admin' },
+        { label: 'Settings' },
+      ]}
+      navItems={buildTenantAdminNav(session)}
+    >
       <section className="form-section">
         <div className="form-section-title">Tenant setup</div>
         <h1 className="page-title">Council setup workspace</h1>
         <p className="page-subtitle">
           This is the first-run area for your council. Save your organisation details, public homepage content, and identity settings here.
         </p>
+        <div className="platform-hero-actions" style={{ marginTop: -16 }}>
+          <Link className="btn btn-secondary" to="/admin/dashboard">Back to admin dashboard</Link>
+          {settings?.tenant?.subdomain && (
+            <a className="btn btn-secondary" href={`https://${settings.tenant.subdomain}.zanflo.com`}>
+              Open public council site
+            </a>
+          )}
+        </div>
       </section>
 
       {error && <div className="alert alert-error">{error}</div>}

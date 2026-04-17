@@ -15,6 +15,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from '../auth-context.jsx';
 import Layout from '../components/Layout.jsx';
+import { buildApplicantNav } from '../lib/navigation.js';
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -139,7 +140,7 @@ export default function ApplicationPage() {
 
   if (loading) {
     return (
-      <Layout>
+      <Layout navItems={buildApplicantNav(session)}>
         <div className="spinner">Loading...</div>
       </Layout>
     );
@@ -150,7 +151,14 @@ export default function ApplicationPage() {
   const isReadOnly = !isEditable;
 
   return (
-    <Layout>
+    <Layout
+      breadcrumbs={[
+        { to: '/', label: 'Applicant portal' },
+        { to: '/dashboard', label: 'My applications' },
+        { label: application.premises_name || 'Application' },
+      ]}
+      navItems={buildApplicantNav(session)}
+    >
       <Link to="/dashboard" className="back-link">
         Back to dashboard
       </Link>

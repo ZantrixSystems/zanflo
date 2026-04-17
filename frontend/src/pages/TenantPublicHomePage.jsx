@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../auth-context.jsx';
 import { api } from '../api.js';
 import Layout from '../components/Layout.jsx';
+import { buildApplicantNav } from '../lib/navigation.js';
 
 export default function TenantPublicHomePage() {
   const { session } = useAuth();
@@ -17,7 +18,7 @@ export default function TenantPublicHomePage() {
   const councilName = tenant?.display_name || 'Council licensing portal';
 
   return (
-    <Layout>
+    <Layout navItems={buildApplicantNav(session)}>
       <div className="platform-hero">
         <div className="platform-hero-copy">
           <div className="section-heading">Licensing portal</div>

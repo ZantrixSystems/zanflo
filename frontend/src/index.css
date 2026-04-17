@@ -132,6 +132,70 @@ body { min-height: 100vh; }
   margin: 0 auto;
 }
 
+.layout-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.layout-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: .8125rem;
+  color: var(--color-text-muted);
+}
+
+.layout-breadcrumb-item {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.layout-breadcrumbs a,
+.layout-section-link {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.layout-breadcrumbs a:hover,
+.layout-section-link:hover {
+  color: var(--color-primary);
+}
+
+.layout-breadcrumb-separator {
+  color: var(--color-border-strong);
+}
+
+.layout-section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-low);
+  box-shadow: var(--shadow-sm);
+}
+
+.layout-section-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid transparent;
+  font-size: .8125rem;
+  font-weight: 600;
+}
+
+.layout-section-link:hover {
+  border-color: rgba(115,92,0,0.25);
+  background: var(--color-surface);
+}
+
 /* ============================================================
    Auth pages (centred card)
    ============================================================ */
@@ -870,5 +934,9 @@ body { min-height: 100vh; }
 
   .subdomain-input-row {
     grid-template-columns: 1fr;
+  }
+
+  .layout-section-nav {
+    padding: 10px;
   }
 }

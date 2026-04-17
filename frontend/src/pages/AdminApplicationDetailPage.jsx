@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
+import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function formatDate(value) {
   if (!value) return 'Not recorded';
@@ -73,7 +74,18 @@ export default function AdminApplicationDetailPage() {
   }
 
   return (
-    <Layout session={session} onSignOut={logout} brandTarget="/admin/dashboard" signOutTarget="/admin">
+    <Layout
+      session={session}
+      onSignOut={logout}
+      brandTarget="/admin/dashboard"
+      signOutTarget="/admin"
+      breadcrumbs={[
+        { to: '/admin/dashboard', label: 'Council admin' },
+        { to: '/admin/applications', label: 'Applications' },
+        { label: 'Case detail' },
+      ]}
+      navItems={buildTenantAdminNav(session)}
+    >
       <Link to="/admin/applications" className="back-link">
         Back to applications
       </Link>

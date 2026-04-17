@@ -209,13 +209,13 @@ async function activateBootstrapTenant(request, env) {
   `;
   const tenant = tenants[0];
   if (!tenant) return error('Tenant not found', 404);
-  if (tenant.status !== 'pending_verification') {
+  if (tenant.status !== 'pending_setup') {
     return error('Tenant is not awaiting activation', 409);
   }
 
   await sql`
     UPDATE tenants
-    SET status = 'trial',
+    SET status = 'active',
         trial_started_at = NOW(),
         trial_ends_at = NOW() + INTERVAL '30 days',
         onboarding_completed_at = NOW(),

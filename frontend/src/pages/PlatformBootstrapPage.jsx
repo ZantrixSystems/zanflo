@@ -56,7 +56,7 @@ export default function PlatformBootstrapPage() {
   }, [navigate]);
 
   const pendingBanner = useMemo(() => {
-    if (!context?.tenant || context.tenant.status !== 'pending_verification') return null;
+    if (!context?.tenant || context.tenant.status !== 'pending_setup') return null;
     const days = context.tenant.activation_days_remaining;
     return `You have ${days} day${days === 1 ? '' : 's'} left to complete setup before this pending tenant is cleaned up automatically.`;
   }, [context]);
@@ -103,7 +103,7 @@ export default function PlatformBootstrapPage() {
     try {
       await api.activateBootstrapTenant();
       await reload();
-      setSuccess('Tenant moved into trial. You can now continue on your council hostname.');
+      setSuccess('Tenant activated. You can now continue on your council hostname.');
     } catch (err) {
       setError(err.message || 'Could not activate tenant.');
     } finally {
@@ -228,15 +228,15 @@ export default function PlatformBootstrapPage() {
         <section className="form-section">
           <div className="form-section-title">Activation</div>
           <p className="platform-body-copy" style={{ marginBottom: 20 }}>
-            When you are happy with the break-glass account and initial role assignments, start the tenant trial.
+            When you are happy with the break-glass account and initial role assignments, activate the tenant.
           </p>
           <button
             type="button"
             className="btn btn-primary"
             onClick={handleActivateTenant}
-            disabled={activating || context?.tenant?.status !== 'pending_verification'}
+            disabled={activating || context?.tenant?.status !== 'pending_setup'}
           >
-            {activating ? 'Starting trial…' : 'Complete setup and start trial'}
+            {activating ? 'Activating…' : 'Complete setup and activate tenant'}
           </button>
         </section>
       </div>

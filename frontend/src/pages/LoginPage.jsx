@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth-context.jsx';
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next') || '/apply';
 
-  const [email,    setEmail]    = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error,    setError]    = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -17,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      navigate(next);
     } catch (err) {
       setError(err.message || 'Sign in failed. Please check your details.');
     } finally {
@@ -30,7 +32,7 @@ export default function LoginPage() {
       <div className="auth-card">
         <h1>Sign in</h1>
         <p className="auth-subtitle">
-          Access your licence applications for Riverside Council.
+          Sign in to continue your application or check the status of existing applications.
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -65,12 +67,12 @@ export default function LoginPage() {
             className="btn btn-primary btn-full"
             disabled={loading || !email || !password}
           >
-            {loading ? 'Signing in…' : 'Sign in'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
         <p className="auth-footer">
-          No account? <Link to="/register">Create one</Link>
+          No account? <Link to={`/register?next=${encodeURIComponent(next)}`}>Create one</Link>
         </p>
       </div>
     </div>

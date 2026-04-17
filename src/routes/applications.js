@@ -24,7 +24,7 @@
  */
 
 import { getDb } from '../db/client.js';
-import { getApplicantSession } from '../lib/applicant-session.js';
+import { requireApplicant } from '../lib/guards.js';
 import { writeAuditLog } from '../lib/audit.js';
 import {
   encryptApplicationApplicantPhone,
@@ -60,7 +60,7 @@ const SUBMIT_REQUIRED_FIELDS = [
 // Start a new draft application. application_type_id required.
 // ---------------------------------------------------------------------------
 async function createApplication(request, env) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   let body;
@@ -158,7 +158,7 @@ async function createApplication(request, env) {
 // List this applicant's applications for this tenant.
 // ---------------------------------------------------------------------------
 async function listApplications(request, env) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);
@@ -191,7 +191,7 @@ async function listApplications(request, env) {
 // Fetch a single application — double-scoped to tenant AND applicant.
 // ---------------------------------------------------------------------------
 async function getApplication(request, env, id) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);
@@ -219,7 +219,7 @@ async function getApplication(request, env, id) {
 // Accepts any subset of form fields — partial saves are valid.
 // ---------------------------------------------------------------------------
 async function updateApplication(request, env, id) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   let body;
@@ -241,8 +241,8 @@ async function updateApplication(request, env, id) {
   `;
 
   if (existing.length === 0) return error('Not found', 404);
-  if (existing[0].status !== 'draft') {
-    return error('Only draft applications can be edited', 409);
+  if (!['draft', 'awaiting_information'].includes(existing[0].status)) {
+    return error('Only draft or awaiting-information applications can be edited', 409);
   }
 
   const {
@@ -314,7 +314,9 @@ async function updateApplication(request, env, id) {
     tenantId:   session.tenant_id,
     actorType:  'applicant',
     actorId:    session.applicant_account_id,
-    action:     'application.draft_saved',
+    action:     existing[0].status === 'awaiting_information'
+      ? 'application.information_response_saved'
+      : 'application.draft_saved',
     recordType: 'application',
     recordId:   id,
   });
@@ -327,7 +329,7 @@ async function updateApplication(request, env, id) {
 // Validate required fields then transition to submitted.
 // ---------------------------------------------------------------------------
 async function submitApplication(request, env, id) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);
@@ -343,8 +345,8 @@ async function submitApplication(request, env, id) {
   if (existing.length === 0) return error('Not found', 404);
   const app = existing[0];
 
-  if (app.status !== 'draft') {
-    return error('Application has already been submitted', 409);
+  if (!['draft', 'awaiting_information'].includes(app.status)) {
+    return error('Application cannot be submitted in its current state', 409);
   }
 
   const missing = SUBMIT_REQUIRED_FIELDS.filter((field) => !app[field]);
@@ -355,8 +357,14 @@ async function submitApplication(request, env, id) {
   const rows = await sql`
     UPDATE applications
     SET
-      status       = 'submitted',
-      submitted_at = NOW(),
+      status       = CASE
+        WHEN status = 'awaiting_information' THEN 'under_review'
+        ELSE 'submitted'
+      END,
+      submitted_at = CASE
+        WHEN status = 'draft' THEN NOW()
+        ELSE submitted_at
+      END,
       updated_at   = NOW(),
       expires_at   = NULL
     WHERE id                   = ${id}
@@ -369,7 +377,9 @@ async function submitApplication(request, env, id) {
     tenantId:   session.tenant_id,
     actorType:  'applicant',
     actorId:    session.applicant_account_id,
-    action:     'application.submitted',
+    action:     app.status === 'awaiting_information'
+      ? 'application.information_submitted'
+      : 'application.submitted',
     recordType: 'application',
     recordId:   id,
   });
@@ -382,7 +392,7 @@ async function submitApplication(request, env, id) {
 // Hard-delete a draft. Only allowed while status = draft.
 // ---------------------------------------------------------------------------
 async function deleteApplication(request, env, id) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   const sql = getDb(env);

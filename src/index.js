@@ -20,13 +20,16 @@
  *   JWT_SECRET=some-long-random-string
  */
 
-import { handleAuthRoutes }            from './routes/auth.js';
 import { handleApplicantAuthRoutes }   from './routes/applicant-auth.js';
 import { handleApplicationTypeRoutes } from './routes/application-types.js';
 import { handleApplicationRoutes }     from './routes/applications.js';
+import { handleAdminApplicationRoutes } from './routes/admin-applications.js';
+import { handleAdminAuditRoutes }      from './routes/admin-audit.js';
+import { handleAdminSettingsRoutes }   from './routes/admin-settings.js';
+import { handleAdminUserRoutes }       from './routes/admin-users.js';
+import { handlePlatformAuthRoutes }    from './routes/platform-auth.js';
 import { handlePlatformAdminRoutes }   from './routes/platform-admin.js';
-import { handlePlatformBootstrapRoutes } from './routes/platform-bootstrap.js';
-import { handlePlatformPublicRoutes }  from './routes/platform-public.js';
+import { handleStaffAuthRoutes }       from './routes/staff-auth.js';
 import { getDb }                       from './db/client.js';
 
 function json(data, status = 200) {
@@ -55,7 +58,7 @@ export default {
           WITH expired_tenants AS (
             SELECT id
             FROM tenants
-            WHERE status = 'pending_verification'
+            WHERE status = 'pending_setup'
               AND activation_expires_at IS NOT NULL
               AND activation_expires_at < NOW()
           ),
@@ -145,12 +148,15 @@ export default {
 
     try {
       const response =
-        (await handleAuthRoutes(request, env))            ??
         (await handleApplicantAuthRoutes(request, env))   ??
+        (await handleStaffAuthRoutes(request, env))       ??
+        (await handlePlatformAuthRoutes(request, env))    ??
         (await handleApplicationTypeRoutes(request, env)) ??
         (await handleApplicationRoutes(request, env))     ??
-        (await handlePlatformBootstrapRoutes(request, env)) ??
-        (await handlePlatformPublicRoutes(request, env))  ??
+        (await handleAdminApplicationRoutes(request, env)) ??
+        (await handleAdminUserRoutes(request, env))       ??
+        (await handleAdminSettingsRoutes(request, env))   ??
+        (await handleAdminAuditRoutes(request, env))      ??
         (await handlePlatformAdminRoutes(request, env))   ??
         json({ error: 'Not found' }, 404);
 

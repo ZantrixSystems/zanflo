@@ -16,7 +16,7 @@
  * No other file needs to change.
  *
  * Tenant status is enforced here:
- *   - 'active' and 'trial' → allowed
+ *   - 'active'             → allowed for public tenant traffic
  *   - anything else        → returns null (caller returns 403)
  *
  * Usage:
@@ -35,6 +35,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
+import { allowTenantSlugFallback } from './request-context.js';
 import { RESERVED_SUBDOMAINS } from './subdomains.js';
 
 /**
@@ -47,10 +48,10 @@ import { RESERVED_SUBDOMAINS } from './subdomains.js';
 const PLATFORM_DOMAIN = 'zanflo.com';
 
 /**
- * Tenant statuses that are allowed to receive API traffic.
- * Suspended, expired, and deleted tenants are blocked at the resolver level.
+ * Tenant statuses that are allowed to receive public tenant traffic.
+ * Suspended, disabled, and pending_setup tenants are blocked here.
  */
-const ALLOWED_STATUSES = new Set(['active', 'trial']);
+const ALLOWED_STATUSES = new Set(['active']);
 
 /**
  * Resolve the tenant for this request.
@@ -59,7 +60,7 @@ const ALLOWED_STATUSES = new Set(['active', 'trial']);
  * @param {import('@neondatabase/serverless').NeonQueryFunction} sql
  * @returns {Promise<{id: string, name: string, slug: string, subdomain: string|null, status: string} | null>}
  */
-export async function resolveTenant(request, sql) {
+export async function resolveTenant(request, sql, env = {}) {
   const host = request.headers.get('host') ?? '';
 
   // ── Strategy 1: Subdomain from Host header (production model) ──────────────
@@ -85,7 +86,7 @@ export async function resolveTenant(request, sql) {
   // ── FALLBACK — remove when on real domain ──────────────────────────────────
   // Strategy 2: X-Tenant-Slug header (workers.dev / local dev only)
   const slug = request.headers.get('X-Tenant-Slug');
-  if (slug) {
+  if (slug && allowTenantSlugFallback(request, env)) {
     const rows = await sql`
       SELECT id, name, slug, subdomain, status
       FROM tenants

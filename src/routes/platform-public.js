@@ -2,7 +2,7 @@
  * Platform public routes.
  *
  * These routes are for zanflo.com itself, not tenant portals.
- * They support self-serve creation of the initial tenant admin account.
+ * They are for public platform-site interactions only.
  */
 
 import { getDb } from '../db/client.js';
@@ -120,7 +120,7 @@ async function createTenantBootstrap(request, env) {
       ${organisationName},
       ${requestedSubdomain},
       ${requestedSubdomain},
-      'pending_verification',
+      'pending_setup',
       ${adminName},
       ${workEmail},
       NOW() + INTERVAL '30 days'

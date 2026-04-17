@@ -1,13 +1,13 @@
 /**
  * Application general form page.
  *
- * Applicant name and email are locked from the account — they are legal identity
- * fields and cannot differ from the registered account holder.
- * Phone is pre-filled but editable (not required at registration).
+ * Applicant name and email are locked from the account because they are
+ * legal identity fields and cannot differ from the registered account holder.
+ * Phone is pre-filled but editable.
  *
  * Contact details default to the applicant's own details on a new application
- * but are fully editable — for cases where a solicitor or agent is acting
- * on behalf of the applicant.
+ * but remain editable when a solicitor or agent is acting on behalf
+ * of the applicant.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -19,15 +19,14 @@ import Layout from '../components/Layout.jsx';
 function formatDate(iso) {
   if (!iso) return '';
   return new Date(iso).toLocaleString('en-GB', {
-    day:    '2-digit',
-    month:  'short',
-    year:   'numeric',
-    hour:   '2-digit',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
     minute: '2-digit',
   });
 }
 
-// Fields the applicant can edit — name and email are excluded (locked from account)
 const EDITABLE_FIELDS = [
   'applicant_phone',
   'premises_name', 'premises_address', 'premises_postcode', 'premises_description',
@@ -35,18 +34,18 @@ const EDITABLE_FIELDS = [
 ];
 
 export default function ApplicationPage() {
-  const { id }      = useParams();
-  const navigate    = useNavigate();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const { session } = useAuth();
 
   const [application, setApplication] = useState(null);
-  const [formData,    setFormData]     = useState({});
-  const [loading,     setLoading]      = useState(true);
-  const [saving,      setSaving]       = useState(false);
-  const [submitting,  setSubmitting]   = useState(false);
-  const [deleting,    setDeleting]     = useState(false);
-  const [saveStatus,  setSaveStatus]   = useState('');
-  const [error,       setError]        = useState('');
+  const [formData, setFormData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     api.getApplication(id)
@@ -54,12 +53,12 @@ export default function ApplicationPage() {
         setApplication(app);
 
         const fields = {};
-        EDITABLE_FIELDS.forEach((f) => { fields[f] = app[f] ?? ''; });
+        EDITABLE_FIELDS.forEach((field) => {
+          fields[field] = app[field] ?? '';
+        });
 
-        // Default contact fields to applicant's own details if not yet set
-        // — common case is the applicant is also the contact
-        if (!app.contact_name)  fields.contact_name  = session?.full_name ?? '';
-        if (!app.contact_email) fields.contact_email = session?.email     ?? '';
+        if (!app.contact_name) fields.contact_name = session?.full_name ?? '';
+        if (!app.contact_email) fields.contact_email = session?.email ?? '';
 
         setFormData(fields);
       })
@@ -70,21 +69,21 @@ export default function ApplicationPage() {
       .finally(() => setLoading(false));
   }, [id, navigate, session]);
 
-  const isDraft = application?.status === 'draft';
+  const isEditable = ['draft', 'awaiting_information'].includes(application?.status);
 
   function set(field) {
-    return (e) => setFormData((f) => ({ ...f, [field]: e.target.value }));
+    return (event) => setFormData((current) => ({ ...current, [field]: event.target.value }));
   }
 
   const saveDraft = useCallback(async () => {
-    if (!isDraft) return;
+    if (!isEditable) return;
     setSaving(true);
     setSaveStatus('');
     setError('');
 
     const payload = {};
-    EDITABLE_FIELDS.forEach((f) => {
-      payload[f] = formData[f]?.trim() || null;
+    EDITABLE_FIELDS.forEach((field) => {
+      payload[field] = formData[field]?.trim() || null;
     });
 
     try {
@@ -98,10 +97,10 @@ export default function ApplicationPage() {
     } finally {
       setSaving(false);
     }
-  }, [id, formData, isDraft]);
+  }, [id, formData, isEditable]);
 
   async function handleDelete() {
-    if (!isDraft) return;
+    if (application?.status !== 'draft') return;
     if (!window.confirm('Delete this draft application? This cannot be undone.')) return;
     setDeleting(true);
     setError('');
@@ -115,13 +114,13 @@ export default function ApplicationPage() {
   }
 
   async function handleSubmit() {
-    if (!isDraft) return;
+    if (!isEditable) return;
     setSaving(true);
     setError('');
 
     const payload = {};
-    EDITABLE_FIELDS.forEach((f) => {
-      payload[f] = formData[f]?.trim() || null;
+    EDITABLE_FIELDS.forEach((field) => {
+      payload[field] = formData[field]?.trim() || null;
     });
 
     try {
@@ -141,19 +140,19 @@ export default function ApplicationPage() {
   if (loading) {
     return (
       <Layout>
-        <div className="spinner">Loading…</div>
+        <div className="spinner">Loading...</div>
       </Layout>
     );
   }
 
   if (!application) return null;
 
-  const isReadOnly = application.status !== 'draft';
+  const isReadOnly = !isEditable;
 
   return (
     <Layout>
       <Link to="/dashboard" className="back-link">
-        ← Back to dashboard
+        Back to dashboard
       </Link>
 
       <div className="form-page-header">
@@ -162,33 +161,37 @@ export default function ApplicationPage() {
         </span>
         <h1 className="form-page-title">
           {application.premises_name
-            ? `Application — ${application.premises_name}`
+            ? `Application - ${application.premises_name}`
             : 'New application'}
         </h1>
         <p className="form-page-status">
           {isReadOnly
             ? `Submitted ${formatDate(application.submitted_at)}`
-            : `Draft · last saved ${formatDate(application.updated_at)}`}
+            : `${application.status === 'awaiting_information' ? 'Awaiting information' : 'Draft'} - last saved ${formatDate(application.updated_at)}`}
         </p>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {!isReadOnly && application.expires_at && (
+      {!isReadOnly && application.status === 'draft' && application.expires_at && (
         <div className="alert alert-warning" style={{ marginBottom: 24 }}>
           This draft will be automatically deleted on {formatDate(application.expires_at)} if not submitted.
         </div>
       )}
 
-      {isReadOnly && (
+      {application.status === 'awaiting_information' && (
+        <div className="alert alert-warning" style={{ marginBottom: 24 }}>
+          The council has asked for more information. Update the form and submit again to return the application to review.
+        </div>
+      )}
+
+      {isReadOnly && application.status !== 'awaiting_information' && (
         <div className="alert alert-success" style={{ marginBottom: 24 }}>
           This application has been submitted and cannot be edited.
         </div>
       )}
 
-      <form onSubmit={(e) => e.preventDefault()}>
-
-        {/* ── Section 1: Applicant details ── */}
+      <form onSubmit={(event) => event.preventDefault()}>
         <section className="form-section">
           <h2 className="form-section-title">Applicant details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
@@ -238,7 +241,6 @@ export default function ApplicationPage() {
           </div>
         </section>
 
-        {/* ── Section 2: Premises details ── */}
         <section className="form-section">
           <h2 className="form-section-title">Premises details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
@@ -297,12 +299,11 @@ export default function ApplicationPage() {
               rows={3}
             />
             <span className="form-hint">
-              Brief description — e.g. type of venue, capacity, planned activities.
+              Brief description, for example type of venue, capacity, or planned activities.
             </span>
           </div>
         </section>
 
-        {/* ── Section 3: Contact details ── */}
         <section className="form-section">
           <h2 className="form-section-title">Contact details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
@@ -351,7 +352,6 @@ export default function ApplicationPage() {
           </div>
         </section>
 
-        {/* ── Actions ── */}
         {!isReadOnly && (
           <div className="form-actions">
             <button
@@ -360,7 +360,7 @@ export default function ApplicationPage() {
               onClick={saveDraft}
               disabled={saving || submitting}
             >
-              {saving && !submitting ? 'Saving…' : 'Save draft'}
+              {saving && !submitting ? 'Saving...' : 'Save draft'}
             </button>
 
             <button
@@ -369,22 +369,24 @@ export default function ApplicationPage() {
               onClick={handleSubmit}
               disabled={saving || submitting}
             >
-              {submitting ? 'Submitting…' : 'Submit application'}
+              {submitting ? 'Submitting...' : application.status === 'awaiting_information' ? 'Send updated information' : 'Submit application'}
             </button>
 
             {saveStatus === 'saved' && (
               <span className="save-indicator saved">Saved</span>
             )}
 
-            <button
-              type="button"
-              className="btn btn-danger"
-              onClick={handleDelete}
-              disabled={saving || submitting || deleting}
-              style={{ marginLeft: 'auto' }}
-            >
-              {deleting ? 'Deleting…' : 'Delete draft'}
-            </button>
+            {application.status === 'draft' && (
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={handleDelete}
+                disabled={saving || submitting || deleting}
+                style={{ marginLeft: 'auto' }}
+              >
+                {deleting ? 'Deleting...' : 'Delete draft'}
+              </button>
+            )}
           </div>
         )}
       </form>

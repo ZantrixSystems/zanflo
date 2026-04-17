@@ -8,12 +8,12 @@
  * Routes:
  *   GET /application-types
  *
- * Auth: applicant session required.
- * Tenant: resolved from session (already verified at login).
+ * Auth: none.
+ * Tenant: resolved from the current request hostname.
  */
 
 import { getDb } from '../db/client.js';
-import { getApplicantSession } from '../lib/applicant-session.js';
+import { resolveTenant } from '../lib/tenant-resolver.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -30,10 +30,9 @@ function error(message, status = 400) {
 // GET /application-types
 // ---------------------------------------------------------------------------
 async function listApplicationTypes(request, env) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
-  if (!session) return error('Not authenticated', 401);
-
   const sql = getDb(env);
+  const tenant = await resolveTenant(request, sql, env);
+  if (!tenant) return error('Tenant not found or not available', 403);
 
   // Only return types the tenant has enabled
   const rows = await sql`
@@ -45,7 +44,7 @@ async function listApplicationTypes(request, env) {
     FROM application_types at
     INNER JOIN tenant_enabled_application_types teat
       ON teat.application_type_id = at.id
-      AND teat.tenant_id = ${session.tenant_id}
+      AND teat.tenant_id = ${tenant.id}
     WHERE at.is_active = true
     ORDER BY at.name ASC
   `;

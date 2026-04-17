@@ -1,19 +1,21 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth-context.jsx';
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const next = searchParams.get('next') || '/apply';
 
   const [form, setForm] = useState({
     full_name: '',
-    email:     '',
-    phone:     '',
-    password:  '',
-    confirm:   '',
+    email: '',
+    phone: '',
+    password: '',
+    confirm: '',
   });
-  const [error,   setError]   = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   function set(field) {
@@ -36,7 +38,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(form.email, form.password, form.full_name, form.phone);
-      navigate('/dashboard');
+      navigate(next);
     } catch (err) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -51,7 +53,7 @@ export default function RegisterPage() {
       <div className="auth-card">
         <h1>Create account</h1>
         <p className="auth-subtitle">
-          Register to apply for licences with Riverside Council.
+          Create your applicant account so you can start, save, and track applications.
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -124,12 +126,12 @@ export default function RegisterPage() {
             className="btn btn-primary btn-full"
             disabled={loading || !canSubmit}
           >
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
 
         <p className="auth-footer">
-          Already have an account? <Link to="/login">Sign in</Link>
+          Already have an account? <Link to={`/login?next=${encodeURIComponent(next)}`}>Sign in</Link>
         </p>
       </div>
     </div>

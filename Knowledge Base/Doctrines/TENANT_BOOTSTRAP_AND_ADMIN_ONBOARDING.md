@@ -2,31 +2,40 @@
 
 ## Purpose
 
-Define the intended behaviour for self-serve creation of the first tenant admin account on the platform apex.
+Define the intended MVP behaviour for tenant onboarding, break-glass admin issuance, and entry-point separation.
 
 ## Rules
 
-- The apex host `zanflo.com` is for platform-level tenant bootstrap, not applicant sign-up
-- The first self-serve account is the tenant's break-glass admin account
-- The break-glass account uses local username/email + password auth even if SSO is enabled later
-- Self-serve signup creates a tenant in `pending_verification`, not a fully live tenant
-- Pending tenants must not resolve through normal tenant portal routes until moved into an allowed live state
-- The initial tenant admin lands in a platform-managed onboarding/settings area
-- Additional future staff access is stored as tenant-scoped role assignments by email
+- Tenant onboarding is manual in MVP and performed by a `platform_admin`
+- Self-service tenant signup is not part of the active MVP runtime path
+- The apex host `zanflo.com` is a product site, not an admin signup or tenant bootstrap flow
+- The platform host `platform.zanflo.com` is reserved for platform administration only
+- Each tenant uses `<tenant>.zanflo.com` for its public applicant portal
+- Tenant staff and tenant admins use `<tenant>.zanflo.com/admin`
+- The first tenant admin account is a break-glass account issued during manual onboarding
+- The break-glass account uses local username/email plus password auth even if SSO is enabled later
+- Platform roles and tenant roles remain separate concerns
+- Additional tenant staff access uses tenant-scoped memberships and tenant roles only
 - Role assignments must use existing tenant roles only: `tenant_admin`, `manager`, `officer`
 - `platform_admin` remains a separate platform-scoped concern
-- Pending self-serve tenants have a 30-day activation window
-- Nightly cleanup removes pending tenants that were never activated within that window
 
-## Activation Model
+## Tenant Status Model
 
-- `pending_verification` means the tenant exists for bootstrap only
-- Completing bootstrap moves the tenant to `trial`
-- `trial` and `active` are allowed tenant portal states
-- Cleanup applies only to `pending_verification` tenants whose activation window has expired
+- `pending_setup` means the tenant exists in the platform but is not available to the public tenant portal
+- `active` means the tenant public portal and tenant staff entry are available
+- `suspended` means tenant-facing access is blocked while platform administration remains available
+- `disabled` means the tenant is inactive and tenant-facing access is blocked
+
+## Access Model
+
+- Applicants start from the tenant public homepage and use `/apply` as the single public start route
+- Applicant registration and sign-in remain tenant-scoped
+- Tenant staff sign in through `/api/staff/login` and must belong to the tenant resolved from the host
+- Platform admins sign in through `/api/platform/login`
+- Mixed `/api/auth/*` runtime paths are not part of the active MVP route model
 
 ## SSO Direction
 
-- SSO is a later capability, not a prerequisite for the first admin account
-- Future SSO mapping must bind users to tenant-scoped role assignments by email
+- SSO is a later capability, not a prerequisite for issuing the first tenant admin account
+- Future SSO mapping must bind users to tenant-scoped roles
 - The break-glass local admin path must remain available even after SSO is added

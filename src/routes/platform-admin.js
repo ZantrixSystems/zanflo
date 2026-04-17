@@ -20,8 +20,9 @@
  */
 
 import { getDb }        from '../db/client.js';
-import { getCookieValue, verifySession } from '../lib/session.js';
+import { requirePlatformAdmin } from '../lib/guards.js';
 import { hashPassword } from '../lib/passwords.js';
+import { isPlatformHost } from '../lib/request-context.js';
 import { writeAuditLog } from '../lib/audit.js';
 import { validateSubdomain } from '../lib/subdomains.js';
 
@@ -40,21 +41,8 @@ function error(message, status = 400) {
   return json({ error: message }, status);
 }
 
-/**
- * Require a valid platform admin session.
- * Returns the session payload or null.
- */
-async function requirePlatformAdmin(request, env) {
-  const token = getCookieValue(request, 'session');
-  if (!token) return null;
-  const session = await verifySession(token, env.JWT_SECRET);
-  if (!session) return null;
-  if (!session.is_platform_admin) return null;
-  return session;
-}
-
 const VALID_STATUSES = new Set([
-  'pending_verification', 'trial', 'active', 'suspended', 'expired', 'scheduled_deletion', 'deleted',
+  'pending_setup', 'active', 'suspended', 'disabled',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -96,12 +84,11 @@ async function createTenant(request, env) {
     name,
     slug,
     subdomain,
-    status = 'trial',
+    status = 'pending_setup',
     contact_name,
     contact_email,
     max_staff_users = 3,
     max_applications = 50,
-    trial_days = 30,
   } = body;
 
   if (!name?.trim())  return error('name is required');
@@ -125,10 +112,6 @@ async function createTenant(request, env) {
   `;
   if (clash.length > 0) return error('slug or subdomain already in use', 409);
 
-  const trialEndsAt = (status === 'trial')
-    ? sql`NOW() + (${trial_days} || ' days')::interval`
-    : null;
-
   const rows = await sql`
     INSERT INTO tenants (name, slug, subdomain, status, contact_name, contact_email, trial_ends_at)
     VALUES (
@@ -138,7 +121,7 @@ async function createTenant(request, env) {
       ${status},
       ${contact_name?.trim() ?? null},
       ${contact_email?.trim().toLowerCase() ?? null},
-      ${trialEndsAt}
+      NULL
     )
     RETURNING id, name, slug, subdomain, status, created_at
   `;
@@ -209,11 +192,9 @@ async function updateTenantStatus(request, env, id) {
     UPDATE tenants
     SET
       status             = ${status},
-      activated_at       = CASE WHEN ${status} = 'active'              THEN ${now}::timestamptz ELSE activated_at       END,
-      suspended_at       = CASE WHEN ${status} = 'suspended'           THEN ${now}::timestamptz ELSE suspended_at       END,
-      expired_at         = CASE WHEN ${status} = 'expired'             THEN ${now}::timestamptz ELSE expired_at         END,
-      scheduled_deletion_at = CASE WHEN ${status} = 'scheduled_deletion' THEN ${now}::timestamptz ELSE scheduled_deletion_at END,
-      deleted_at         = CASE WHEN ${status} = 'deleted'             THEN ${now}::timestamptz ELSE deleted_at         END
+      activated_at       = CASE WHEN ${status} = 'active'      THEN ${now}::timestamptz ELSE activated_at END,
+      suspended_at       = CASE WHEN ${status} = 'suspended'   THEN ${now}::timestamptz ELSE suspended_at END,
+      deleted_at         = CASE WHEN ${status} = 'disabled'    THEN ${now}::timestamptz ELSE deleted_at   END
     WHERE id = ${id}
     RETURNING id, name, slug, subdomain, status
   `;
@@ -310,6 +291,7 @@ export async function handlePlatformAdminRoutes(request, env) {
   const { method } = request;
 
   if (!url.pathname.startsWith('/api/platform/')) return null;
+  if (!isPlatformHost(request)) return error('Not found', 404);
 
   if (method === 'GET'  && url.pathname === '/api/platform/tenants') return listTenants(request, env);
   if (method === 'POST' && url.pathname === '/api/platform/tenants') return createTenant(request, env);

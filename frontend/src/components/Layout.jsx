@@ -1,17 +1,25 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth-context.jsx';
 
-export default function Layout({ children }) {
-  const { session, logout } = useAuth();
+export default function Layout({
+  children,
+  session: explicitSession,
+  onSignOut,
+  brandTarget: explicitBrandTarget,
+  signOutTarget = '/login',
+}) {
+  const applicantAuth = useAuth();
+  const session = explicitSession ?? applicantAuth.session;
+  const logout = onSignOut ?? applicantAuth.logout;
   const navigate = useNavigate();
   const hostname = window.location.hostname.toLowerCase();
   const isApexHost = hostname === 'zanflo.com' || hostname === 'www.zanflo.com';
   const isPlatformHost = hostname === 'platform.zanflo.com';
-  const brandTarget = isApexHost || isPlatformHost ? '/' : '/dashboard';
+  const brandTarget = explicitBrandTarget ?? (isApexHost || isPlatformHost ? '/' : '/dashboard');
 
   async function handleLogout() {
     await logout();
-    navigate('/login');
+    navigate(signOutTarget);
   }
 
   return (

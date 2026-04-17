@@ -24,9 +24,9 @@ import {
   signApplicantSession,
   buildApplicantCookie,
   clearApplicantCookie,
-  getApplicantSession,
 } from '../lib/applicant-session.js';
 import { writeAuditLog } from '../lib/audit.js';
+import { requireApplicant } from '../lib/guards.js';
 import { resolveTenant } from '../lib/tenant-resolver.js';
 
 // ---------------------------------------------------------------------------
@@ -49,7 +49,7 @@ function error(message, status = 400) {
 // ---------------------------------------------------------------------------
 async function register(request, env) {
   const sql = getDb(env);
-  const tenant = await resolveTenant(request, sql);
+  const tenant = await resolveTenant(request, sql, env);
   if (!tenant) return error('Tenant not found or not available', 403);
 
   let body;
@@ -132,7 +132,7 @@ async function register(request, env) {
 // ---------------------------------------------------------------------------
 async function login(request, env) {
   const sql = getDb(env);
-  const tenant = await resolveTenant(request, sql);
+  const tenant = await resolveTenant(request, sql, env);
   if (!tenant) return error('Tenant not found or not available', 403);
 
   let body;
@@ -199,7 +199,7 @@ async function logout() {
 // GET /applicant/me
 // ---------------------------------------------------------------------------
 async function me(request, env) {
-  const session = await getApplicantSession(request, env.JWT_SECRET);
+  const session = await requireApplicant(request, env);
   if (!session) return error('Not authenticated', 401);
 
   return json({ session });

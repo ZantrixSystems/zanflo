@@ -127,3 +127,26 @@ Verification:
 Known deployment requirement:
 
 - wildcard tenant host routing now needs Cloudflare custom domain coverage for `*.zanflo.com` in addition to the apex host
+
+---
+
+## First-Run Tenant Admin Handoff UX Fix
+
+Confidence Level: High
+
+Reason:
+
+- after saving the council setup workspace, a new tenant admin was left on the settings page without a clear next step
+- this created avoidable friction in the first-run council admin journey
+
+What changed:
+
+- updated the tenant admin settings page so first-run saves now guide the user forward
+- after save, the page now shows clear next-step actions:
+  - `Go to admin dashboard`
+  - `Open public council site`
+- when the page is opened in first-run mode via `?setup=1`, a successful save now redirects to `/admin/dashboard` after a short delay
+
+Verification:
+
+- `npm --prefix frontend run build`

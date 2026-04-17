@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
@@ -43,12 +44,17 @@ function emptyForm() {
 
 export default function AdminSettingsPage() {
   const { session, logout } = useStaffAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [showNextSteps, setShowNextSteps] = useState(false);
+
+  const isFirstRunSetup = searchParams.get('setup') === '1';
 
   useEffect(() => {
     api.getAdminSettings()
@@ -98,7 +104,14 @@ export default function AdminSettingsPage() {
           clear_oidc_client_secret: false,
         },
       }));
-      setNotice('Tenant setup saved.');
+      setNotice(isFirstRunSetup ? 'Tenant setup saved. Taking you to your admin dashboard...' : 'Tenant setup saved.');
+      setShowNextSteps(true);
+
+      if (isFirstRunSetup) {
+        window.setTimeout(() => {
+          navigate('/admin/dashboard', { replace: true });
+        }, 1200);
+      }
     } catch (err) {
       setError(err.message || 'Could not update tenant settings.');
     } finally {
@@ -118,6 +131,20 @@ export default function AdminSettingsPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
+      {(showNextSteps || isFirstRunSetup) && !loading && (
+        <section className="form-section soft-panel">
+          <div className="form-section-title">What next</div>
+          <p className="platform-body-copy">
+            Your council setup has been saved. You can now move into the main council admin area or check the public council site applicants will use.
+          </p>
+          <div className="platform-hero-actions" style={{ marginTop: 16 }}>
+            <Link className="btn btn-primary" to="/admin/dashboard">Go to admin dashboard</Link>
+            <a className="btn btn-secondary" href={`https://${settings?.tenant?.subdomain}.zanflo.com`}>
+              Open public council site
+            </a>
+          </div>
+        </section>
+      )}
 
       {loading ? (
         <div className="spinner">Loading...</div>

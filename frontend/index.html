@@ -62,41 +62,126 @@
       }
     </style>
     <script>
-      (function () {
+      window.addEventListener('DOMContentLoaded', function () {
         const hostname = window.location.hostname.toLowerCase();
         const isTenantHost = hostname.endsWith('.zanflo.com')
           && hostname !== 'zanflo.com'
           && hostname !== 'www.zanflo.com'
           && hostname !== 'platform.zanflo.com';
 
-        if (!isTenantHost || window.location.pathname === '/admin/bootstrap') return;
+        const fallback = document.getElementById('tenant-shell-fallback');
+        const title = document.getElementById('tenant-shell-title');
+        const body = document.getElementById('tenant-shell-body');
+        const action = document.getElementById('tenant-shell-action');
 
-        function showFallback() {
-          const fallback = document.getElementById('tenant-shell-fallback');
+        if (!isTenantHost) return;
+
+        function setVisible() {
           if (!fallback) return;
-          window.__TENANT_UNAVAILABLE__ = true;
           fallback.classList.add('is-visible');
         }
+
+        function showMissingTenant() {
+          window.__TENANT_UNAVAILABLE__ = true;
+          setVisible();
+          if (title) title.textContent = 'Tenant not found';
+          if (body) body.textContent = 'This council site does not exist, has been deleted, or is not currently active.';
+          if (action) {
+            action.textContent = 'Go to zanflo.com';
+            action.setAttribute('href', 'https://zanflo.com');
+          }
+        }
+
+        function showLoadingFallback(message) {
+          setVisible();
+          if (title) title.textContent = 'Loading council site';
+          if (body) body.textContent = message || 'Please wait while the council portal loads.';
+          if (action) {
+            action.textContent = 'Refresh page';
+            action.setAttribute('href', window.location.href);
+          }
+        }
+
+        showLoadingFallback('Please wait while the council portal loads. If this message stays on screen, refresh the page.');
 
         fetch('/api/tenant/public-config', {
           credentials: 'same-origin',
           headers: { Accept: 'application/json' },
         })
           .then((response) => {
-            if (!response.ok) showFallback();
+            if (!response.ok) {
+              showMissingTenant();
+              return null;
+            }
+            return response.json();
           })
-          .catch(showFallback);
-      }());
+          .then((data) => {
+            if (!data || !title || !body || !action) return;
+
+            if (window.location.pathname === '/admin/bootstrap') {
+              const token = new URLSearchParams(window.location.search).get('token');
+              if (!token) {
+                title.textContent = 'Bootstrap link is incomplete';
+                body.textContent = 'This council setup link is missing its token. Return to the signup page and try again.';
+                action.textContent = 'Go to zanflo.com';
+                action.setAttribute('href', 'https://zanflo.com');
+                return;
+              }
+
+              title.textContent = 'Signing you in';
+              body.textContent = 'We are finishing your first council admin sign-in.';
+              action.textContent = 'Refresh page';
+              action.setAttribute('href', window.location.href);
+
+              fetch('/api/staff/bootstrap-exchange', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Accept: 'application/json',
+                },
+                body: JSON.stringify({ token }),
+              })
+                .then(async (response) => {
+                  const payload = await response.json().catch(() => ({}));
+                  if (!response.ok) {
+                    throw new Error(payload.error || 'Bootstrap sign-in failed.');
+                  }
+
+                  const target = payload.session?.role === 'tenant_admin'
+                    ? '/admin/settings?setup=1'
+                    : '/admin/dashboard';
+                  window.location.replace(target);
+                })
+                .catch((error) => {
+                  title.textContent = 'Bootstrap sign-in failed';
+                  body.textContent = error.message || 'We could not finish the council admin sign-in from this link.';
+                  action.textContent = 'Go to staff sign in';
+                  action.setAttribute('href', '/admin');
+                });
+              return;
+            }
+
+            title.textContent = data.tenant?.display_name
+              ? `Loading ${data.tenant.display_name}`
+              : 'Loading council site';
+            body.textContent = 'The council portal exists and is loading. If this message does not disappear, refresh the page.';
+            action.textContent = window.location.pathname.startsWith('/admin')
+              ? 'Open staff sign in'
+              : 'Refresh page';
+            action.setAttribute('href', window.location.pathname.startsWith('/admin') ? '/admin' : window.location.href);
+        })
+          .catch(showMissingTenant);
+      });
     </script>
   </head>
   <body>
     <div id="tenant-shell-fallback" aria-live="polite">
       <main class="tenant-shell-panel">
         <p class="tenant-shell-eyebrow">Tenant unavailable</p>
-        <h1>Tenant not found</h1>
-        <p>This council site does not exist, has been deleted, or is not currently active.</p>
-        <p>Check the web address and try again. If you expected this council portal to be available, return to the main Zanflo site or contact platform support.</p>
-        <a class="tenant-shell-link" href="https://zanflo.com">Go to zanflo.com</a>
+        <h1 id="tenant-shell-title">Loading council site</h1>
+        <p id="tenant-shell-body">Please wait while the council portal loads.</p>
+        <a id="tenant-shell-action" class="tenant-shell-link" href="https://zanflo.com">Go to zanflo.com</a>
       </main>
     </div>
     <div id="root"></div>

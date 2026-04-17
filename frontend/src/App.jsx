@@ -80,6 +80,49 @@ export default function App() {
     available: true,
   });
 
+  useEffect(() => {
+    if (hostMode !== 'tenant') {
+      setTenantAvailability({ checked: true, available: true });
+      return;
+    }
+
+    if (location.pathname === '/admin/bootstrap') {
+      setTenantAvailability({ checked: true, available: true });
+      return;
+    }
+
+    let active = true;
+    setTenantAvailability((current) => ({ ...current, checked: false }));
+
+    api.getTenantPublicConfig()
+      .then(() => {
+        if (!active) return;
+        setTenantAvailability({ checked: true, available: true });
+      })
+      .catch(() => {
+        if (!active) return;
+        setTenantAvailability({ checked: true, available: false });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hostMode, location.pathname]);
+
+  useEffect(() => {
+    const fallback = document.getElementById('tenant-shell-fallback');
+    if (!fallback) return;
+
+    if (hostMode !== 'tenant') {
+      fallback.classList.remove('is-visible');
+      return;
+    }
+
+    if (!loading && (location.pathname === '/admin/bootstrap' || tenantAvailability.available)) {
+      fallback.classList.remove('is-visible');
+    }
+  }, [hostMode, loading, location.pathname, tenantAvailability.available]);
+
   if (loading) {
     return <div className="spinner">Loading...</div>;
   }
@@ -144,35 +187,6 @@ export default function App() {
       </Routes>
     );
   }
-
-  useEffect(() => {
-    if (hostMode !== 'tenant') {
-      setTenantAvailability({ checked: true, available: true });
-      return;
-    }
-
-    if (location.pathname === '/admin/bootstrap') {
-      setTenantAvailability({ checked: true, available: true });
-      return;
-    }
-
-    let active = true;
-    setTenantAvailability((current) => ({ ...current, checked: false }));
-
-    api.getTenantPublicConfig()
-      .then(() => {
-        if (!active) return;
-        setTenantAvailability({ checked: true, available: true });
-      })
-      .catch(() => {
-        if (!active) return;
-        setTenantAvailability({ checked: true, available: false });
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [hostMode, location.pathname]);
 
   if (hostMode === 'tenant' && location.pathname !== '/admin/bootstrap') {
     if (!tenantAvailability.checked) {

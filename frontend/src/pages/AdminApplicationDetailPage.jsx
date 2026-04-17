@@ -110,6 +110,11 @@ export default function AdminApplicationDetailPage() {
             <p className="platform-body-copy">
               Assigned to: <strong>{application.assigned_user_name || 'Unassigned'}</strong>
             </p>
+            {application.premises_id && (
+              <p className="platform-body-copy">
+                Linked premises record: <strong>{application.linked_premises_name || application.premises_name}</strong>
+              </p>
+            )}
           </section>
 
           {error && <div className="alert alert-error">{error}</div>}
@@ -119,11 +124,24 @@ export default function AdminApplicationDetailPage() {
             <div className="form-section-title">Application details</div>
             <p className="platform-body-copy"><strong>Application type:</strong> {application.application_type_name}</p>
             <p className="platform-body-copy"><strong>Submitted:</strong> {formatDate(application.submitted_at)}</p>
-            <p className="platform-body-copy"><strong>Premises:</strong> {application.premises_address || 'Not provided'}</p>
+            <p className="platform-body-copy"><strong>Premises snapshot name:</strong> {application.premises_name || 'Not provided'}</p>
+            <p className="platform-body-copy"><strong>Premises snapshot address:</strong> {application.premises_address || 'Not provided'}</p>
             <p className="platform-body-copy"><strong>Postcode:</strong> {application.premises_postcode || 'Not provided'}</p>
             <p className="platform-body-copy"><strong>Description:</strong> {application.premises_description || 'Not provided'}</p>
             <p className="platform-body-copy"><strong>Contact:</strong> {application.contact_name || 'Not provided'} {application.contact_email ? `| ${application.contact_email}` : ''}</p>
           </section>
+
+          {application.premises_id && (
+            <section className="form-section">
+              <div className="form-section-title">Linked premises record</div>
+              <p className="platform-body-copy"><strong>Name:</strong> {application.linked_premises_name || 'Not provided'}</p>
+              <p className="platform-body-copy">
+                <strong>Address:</strong> {[application.address_line_1, application.address_line_2, application.town_or_city].filter(Boolean).join(', ') || 'Not provided'}
+              </p>
+              <p className="platform-body-copy"><strong>Postcode:</strong> {application.linked_premises_postcode || 'Not provided'}</p>
+              <p className="platform-body-copy"><strong>Description:</strong> {application.linked_premises_description || 'Not provided'}</p>
+            </section>
+          )}
 
           <section className="form-section">
             <div className="form-section-title">Case actions</div>

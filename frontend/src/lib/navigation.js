@@ -9,6 +9,7 @@ export function buildTenantAdminNav(session) {
 
   if (session?.role === 'tenant_admin') {
     items.push(
+      { to: '/admin/application-setup', label: 'Application setup' },
       { to: '/admin/users', label: 'Users' },
       { to: '/admin/settings', label: 'Settings' },
       { to: '/admin/audit', label: 'Audit' },
@@ -22,6 +23,7 @@ export function buildTenantAdminNav(session) {
 export function buildApplicantNav(session) {
   const items = [
     { to: '/', label: 'Home' },
+    { to: '/premises', label: 'Premises' },
     { to: '/apply', label: 'Start application' },
   ];
 

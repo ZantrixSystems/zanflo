@@ -282,3 +282,74 @@ Scope:
 Verification:
 
 - `npm --prefix frontend run build`
+
+---
+
+## Premises-Centric Applicant Foundation
+
+Confidence Level: High
+
+Phase: 5 - MVP Build
+
+Reason:
+
+- the runtime had applicant accounts and application submission, but premises still only existed as inline fields on `applications`
+- the next MVP-safe slice needs reusable applicant-owned premises without breaking staff casework, tenant bootstrap, or the fixed workflow model
+- the safest path is to add premises as a first-class entity while retaining application-side premises snapshot data for traceability
+
+What changed:
+
+- added a tenant-scoped `premises` table owned by `applicant_accounts`
+- added `applications.premises_id`
+- kept application-side premises snapshot fields in place for case traceability:
+  - `premises_name`
+  - `premises_address`
+  - `premises_postcode`
+  - `premises_description`
+- added applicant premises APIs:
+  - `GET /api/premises`
+  - `POST /api/premises`
+  - `GET /api/premises/:id`
+  - `PUT /api/premises/:id`
+  - `DELETE /api/premises/:id`
+- changed applicant application creation so a new application must start from an owned premises
+- preserved legacy inline-premises draft editing for older applications with no `premises_id`
+- added tenant admin application setup APIs:
+  - `GET /api/admin/application-setup`
+  - `PUT /api/admin/application-setup`
+- added applicant pages for:
+  - premises list
+  - premises create/edit
+  - premises-led application start
+- added tenant admin UI for bounded application setup foundation
+- updated staff application detail to show both:
+  - application premises snapshot
+  - linked premises record context
+
+Backfill and migration strategy:
+
+- created premises rows from existing applications where:
+  - `applicant_account_id` exists
+  - premises snapshot fields were populated
+- linked those applications to the generated premises row by matching tenant, applicant, and premises snapshot values
+- left old applications readable even when no safe backfill link existed
+- did not remove legacy application premises columns
+
+Traceability decision:
+
+- chose `premises_id` plus retained application snapshot fields
+- did not replace staff reads with live premises data only
+- did not introduce a full submission snapshot engine in this slice
+
+Application setup foundation:
+
+- added tenant-owned copy settings for applicant intro and guidance text
+- added bounded metadata rows for known hardcoded fields only
+- added `sensitive` metadata groundwork
+- did not claim runtime custom-field encryption or dynamic form generation
+
+Verification:
+
+- `npm run migrate`
+- `npm test`
+- `npm --prefix frontend run build`

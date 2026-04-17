@@ -24,11 +24,13 @@ import { handleApplicantAuthRoutes }   from './routes/applicant-auth.js';
 import { handleApplicationTypeRoutes } from './routes/application-types.js';
 import { handleApplicationRoutes }     from './routes/applications.js';
 import { handleAdminApplicationRoutes } from './routes/admin-applications.js';
+import { handleAdminApplicationSetupRoutes } from './routes/admin-application-setup.js';
 import { handleAdminAuditRoutes }      from './routes/admin-audit.js';
 import { handleAdminSettingsRoutes }   from './routes/admin-settings.js';
 import { handleAdminUserRoutes }       from './routes/admin-users.js';
 import { handlePlatformAuthRoutes }    from './routes/platform-auth.js';
 import { handlePlatformAdminRoutes }   from './routes/platform-admin.js';
+import { handlePremisesRoutes }        from './routes/premises.js';
 import { handleStaffAuthRoutes }       from './routes/staff-auth.js';
 import { handleTenantPublicRoutes }    from './routes/tenant-public.js';
 import { getDb }                       from './db/client.js';
@@ -75,6 +77,12 @@ export default {
             WHERE a.tenant_id = et.id
             RETURNING a.id
           ),
+          deleted_premises AS (
+            DELETE FROM premises p
+            USING expired_tenants et
+            WHERE p.tenant_id = et.id
+            RETURNING p.id
+          ),
           deleted_applicants AS (
             DELETE FROM applicant_accounts aa
             USING expired_tenants et
@@ -86,6 +94,18 @@ export default {
             USING expired_tenants et
             WHERE teat.tenant_id = et.id
             RETURNING teat.id
+          ),
+          deleted_application_field_settings AS (
+            DELETE FROM tenant_application_field_settings tafs
+            USING expired_tenants et
+            WHERE tafs.tenant_id = et.id
+            RETURNING tafs.id
+          ),
+          deleted_application_settings AS (
+            DELETE FROM tenant_application_settings tas
+            USING expired_tenants et
+            WHERE tas.tenant_id = et.id
+            RETURNING tas.tenant_id
           ),
           deleted_audit AS (
             DELETE FROM audit_logs al
@@ -154,8 +174,10 @@ export default {
         (await handlePlatformAuthRoutes(request, env))    ??
         (await handleApplicationTypeRoutes(request, env)) ??
         (await handleTenantPublicRoutes(request, env))    ??
+        (await handlePremisesRoutes(request, env))        ??
         (await handleApplicationRoutes(request, env))     ??
         (await handleAdminApplicationRoutes(request, env)) ??
+        (await handleAdminApplicationSetupRoutes(request, env)) ??
         (await handleAdminUserRoutes(request, env))       ??
         (await handleAdminSettingsRoutes(request, env))   ??
         (await handleAdminAuditRoutes(request, env))      ??

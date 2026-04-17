@@ -64,8 +64,11 @@ export default function DashboardPage() {
         <div style={{ marginBottom: 40 }}>
           <h2 className="section-heading">Your applications</h2>
           <div className="platform-hero-actions" style={{ marginBottom: 24 }}>
+            <button type="button" className="btn btn-secondary" onClick={() => navigate('/premises')}>
+              Manage premises
+            </button>
             <button type="button" className="btn btn-primary" onClick={() => navigate('/apply')}>
-              Start a new application
+              Start application from premises
             </button>
           </div>
           {applications.length === 0 ? (

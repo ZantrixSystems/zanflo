@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth-context.jsx';
 
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ApplicationPage from './pages/ApplicationPage.jsx';
+import PremisesListPage from './pages/PremisesListPage.jsx';
+import PremisesFormPage from './pages/PremisesFormPage.jsx';
 import PlatformLandingPage from './pages/PlatformLandingPage.jsx';
 import ApexCouncilSignupPage from './pages/ApexCouncilSignupPage.jsx';
 import ApexCouncilSignInPage from './pages/ApexCouncilSignInPage.jsx';
@@ -22,9 +24,11 @@ import AdminApplicationDetailPage from './pages/AdminApplicationDetailPage.jsx';
 import AdminUsersPage from './pages/AdminUsersPage.jsx';
 import AdminSettingsPage from './pages/AdminSettingsPage.jsx';
 import AdminAuditPage from './pages/AdminAuditPage.jsx';
+import AdminApplicationSetupPage from './pages/AdminApplicationSetupPage.jsx';
 import TenantApplyPage from './pages/TenantApplyPage.jsx';
 import TenantBootstrapExchangePage from './pages/TenantBootstrapExchangePage.jsx';
 import TenantPublicHomePage from './pages/TenantPublicHomePage.jsx';
+import TenantUnavailablePage from './pages/TenantUnavailablePage.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RequireStaffAuth from './components/RequireStaffAuth.jsx';
 import RequirePlatformAuth from './components/RequirePlatformAuth.jsx';
@@ -69,7 +73,12 @@ function PlatformIndexRedirect() {
 
 export default function App() {
   const { session, loading } = useAuth();
+  const location = useLocation();
   const hostMode = getHostMode();
+  const [tenantAvailability, setTenantAvailability] = useState({
+    checked: false,
+    available: true,
+  });
 
   if (loading) {
     return <div className="spinner">Loading...</div>;
@@ -136,6 +145,45 @@ export default function App() {
     );
   }
 
+  useEffect(() => {
+    if (hostMode !== 'tenant') {
+      setTenantAvailability({ checked: true, available: true });
+      return;
+    }
+
+    if (location.pathname === '/admin/bootstrap') {
+      setTenantAvailability({ checked: true, available: true });
+      return;
+    }
+
+    let active = true;
+    setTenantAvailability((current) => ({ ...current, checked: false }));
+
+    api.getTenantPublicConfig()
+      .then(() => {
+        if (!active) return;
+        setTenantAvailability({ checked: true, available: true });
+      })
+      .catch(() => {
+        if (!active) return;
+        setTenantAvailability({ checked: true, available: false });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [hostMode, location.pathname]);
+
+  if (hostMode === 'tenant' && location.pathname !== '/admin/bootstrap') {
+    if (!tenantAvailability.checked) {
+      return <div className="spinner">Loading...</div>;
+    }
+
+    if (!tenantAvailability.available) {
+      return <TenantUnavailablePage />;
+    }
+  }
+
   return (
     <Routes>
       <Route path="/" element={<TenantPublicHomePage />} />
@@ -150,6 +198,33 @@ export default function App() {
         element={(
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        )}
+      />
+
+      <Route
+        path="/premises"
+        element={(
+          <RequireAuth>
+            <PremisesListPage />
+          </RequireAuth>
+        )}
+      />
+
+      <Route
+        path="/premises/new"
+        element={(
+          <RequireAuth>
+            <PremisesFormPage />
+          </RequireAuth>
+        )}
+      />
+
+      <Route
+        path="/premises/:id"
+        element={(
+          <RequireAuth>
+            <PremisesFormPage />
           </RequireAuth>
         )}
       />
@@ -186,6 +261,15 @@ export default function App() {
         element={(
           <RequireStaffAuth allowedRoles={['officer', 'manager']}>
             <AdminApplicationDetailPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/application-setup"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin']}>
+            <AdminApplicationSetupPage />
           </RequireStaffAuth>
         )}
       />

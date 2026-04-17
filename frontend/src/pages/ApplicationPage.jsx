@@ -30,7 +30,10 @@ function formatDate(iso) {
 
 const EDITABLE_FIELDS = [
   'applicant_phone',
-  'premises_name', 'premises_address', 'premises_postcode', 'premises_description',
+  'premises_name',
+  'premises_address',
+  'premises_postcode',
+  'premises_description',
   'contact_name', 'contact_email', 'contact_phone',
 ];
 
@@ -155,7 +158,7 @@ export default function ApplicationPage() {
       breadcrumbs={[
         { to: '/', label: 'Applicant portal' },
         { to: '/dashboard', label: 'My applications' },
-        { label: application.premises_name || 'Application' },
+        { label: application.premises_name || application.linked_premises_name || 'Application' },
       ]}
       navItems={buildApplicantNav(session)}
     >
@@ -252,64 +255,66 @@ export default function ApplicationPage() {
         <section className="form-section">
           <h2 className="form-section-title">Premises details</h2>
           <p className="form-hint" style={{ marginBottom: 16 }}>
-            The premises to be licensed.
+            {application.premises_id
+              ? 'This application is linked to a saved premises record. The values shown below are the application snapshot used for casework and traceability.'
+              : 'This is a legacy application draft with inline premises details.'}
           </p>
 
           <div className="form-group">
-            <label htmlFor="premises_name">
-              Premises name <Required />
-            </label>
+            <label htmlFor="premises_name">Premises name <Required /></label>
             <input
               id="premises_name"
               type="text"
-              value={formData.premises_name ?? ''}
-              onChange={set('premises_name')}
-              disabled={isReadOnly}
+              value={application.premises_id ? (application.premises_name ?? '') : (formData.premises_name ?? '')}
+              onChange={application.premises_id ? undefined : set('premises_name')}
+              disabled={application.premises_id || isReadOnly}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="premises_address">
-              Address <Required />
-            </label>
+            <label htmlFor="premises_address">Address <Required /></label>
             <textarea
               id="premises_address"
-              value={formData.premises_address ?? ''}
-              onChange={set('premises_address')}
-              disabled={isReadOnly}
+              value={application.premises_id ? (application.premises_address ?? '') : (formData.premises_address ?? '')}
+              onChange={application.premises_id ? undefined : set('premises_address')}
+              disabled={application.premises_id || isReadOnly}
               rows={3}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="premises_postcode">
-              Postcode <Required />
-            </label>
+            <label htmlFor="premises_postcode">Postcode <Required /></label>
             <input
               id="premises_postcode"
               type="text"
-              value={formData.premises_postcode ?? ''}
-              onChange={set('premises_postcode')}
-              disabled={isReadOnly}
+              value={application.premises_id ? (application.premises_postcode ?? '') : (formData.premises_postcode ?? '')}
+              onChange={application.premises_id ? undefined : set('premises_postcode')}
+              disabled={application.premises_id || isReadOnly}
               style={{ maxWidth: 160 }}
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="premises_description">
-              Description <Optional />
-            </label>
+            <label htmlFor="premises_description">Description <Optional /></label>
             <textarea
               id="premises_description"
-              value={formData.premises_description ?? ''}
-              onChange={set('premises_description')}
-              disabled={isReadOnly}
+              value={application.premises_id ? (application.premises_description ?? '') : (formData.premises_description ?? '')}
+              onChange={application.premises_id ? undefined : set('premises_description')}
+              disabled={application.premises_id || isReadOnly}
               rows={3}
             />
             <span className="form-hint">
               Brief description, for example type of venue, capacity, or planned activities.
             </span>
           </div>
+
+          {application.premises_id && isEditable && (
+            <div className="platform-hero-actions" style={{ marginTop: 16 }}>
+              <Link className="btn btn-secondary" to={`/premises/${application.premises_id}`}>
+                Manage this premises
+              </Link>
+            </div>
+          )}
         </section>
 
         <section className="form-section">

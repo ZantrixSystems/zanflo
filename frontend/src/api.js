@@ -61,6 +61,11 @@ export const api = {
   getTenantPublicConfig: () => request('GET', '/api/tenant/public-config'),
 
   getApplicationTypes: () => request('GET', '/api/application-types'),
+  listPremises: () => request('GET', '/api/premises'),
+  getPremises: (id) => request('GET', `/api/premises/${id}`),
+  createPremises: (body) => request('POST', '/api/premises', body),
+  updatePremises: (id, body) => request('PUT', `/api/premises/${id}`, body),
+  deletePremises: (id) => request('DELETE', `/api/premises/${id}`),
 
   createApplication: (body) => request('POST', '/api/applications', body),
   listApplications: () => request('GET', '/api/applications'),
@@ -85,6 +90,8 @@ export const api = {
   updateAdminUser: (id, body) => request('PUT', `/api/admin/users/${id}`, body),
   getAdminSettings: () => request('GET', '/api/admin/settings'),
   updateAdminSettings: (body) => request('PUT', '/api/admin/settings', body),
+  getAdminApplicationSetup: () => request('GET', '/api/admin/application-setup'),
+  updateAdminApplicationSetup: (body) => request('PUT', '/api/admin/application-setup', body),
   getAdminAudit: () => request('GET', '/api/admin/audit'),
 
   staffLogin: (body) => request('POST', '/api/staff/login', body),

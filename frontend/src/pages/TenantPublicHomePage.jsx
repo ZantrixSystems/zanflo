@@ -26,11 +26,11 @@ export default function TenantPublicHomePage() {
             {tenant?.welcome_text || `Welcome to ${councilName}.`}
           </h1>
           <p className="page-subtitle platform-hero-subtitle">
-            {tenant?.public_homepage_text || 'Create an applicant account, start a premises licence application, save your draft, and return later.'}
+            {tenant?.public_homepage_text || 'Create an applicant account, register your premises once, then start and track premises licence applications online.'}
           </p>
           <div className="platform-hero-actions">
             <Link className="btn btn-primary" to="/apply">Start an application</Link>
-            <Link className="btn btn-secondary" to={session ? '/dashboard' : '/register?next=%2Fapply'}>
+            <Link className="btn btn-secondary" to={session ? '/dashboard' : '/register?next=%2Fpremises'}>
               {session ? 'View your applications' : 'Create applicant account'}
             </Link>
           </div>
@@ -61,7 +61,7 @@ export default function TenantPublicHomePage() {
               <p>Keep your own sign-in separate from council staff accounts and stay within this council&apos;s service only.</p>
             </div>
             <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to={session ? '/dashboard' : '/register?next=%2Fapply'}>
+              <Link className="btn btn-secondary" to={session ? '/dashboard' : '/register?next=%2Fpremises'}>
                 {session ? 'Open dashboard' : 'Create account'}
               </Link>
             </div>
@@ -69,7 +69,7 @@ export default function TenantPublicHomePage() {
           <article className="dashboard-action-row">
             <div className="dashboard-action-copy">
               <h2>Start online</h2>
-              <p>Begin a new premises licence application, save it as a draft, and submit when you are ready.</p>
+              <p>Create your premises record, reuse it for new applications, save drafts, and submit when you are ready.</p>
             </div>
             <div className="dashboard-action-controls">
               <Link className="btn btn-primary" to="/apply">Start</Link>

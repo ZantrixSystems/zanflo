@@ -72,7 +72,7 @@ describe('slice 9 - decisions', () => {
       method: 'PUT',
       host: `${tenantA.slug}.zanflo.com`,
       cookie: applicantCookie,
-      body: { premises_description: 'Updated after information request' },
+      body: { contact_name: 'Updated after information request' },
     });
     expect(updateResponse.status).toBe(200);
 
@@ -80,7 +80,7 @@ describe('slice 9 - decisions', () => {
       method: 'PUT',
       host: `${tenantA.slug}.zanflo.com`,
       cookie: applicantCookie,
-      body: { premises_description: 'Should not work' },
+      body: { contact_name: 'Should not work' },
     });
     expect(otherTenantResponse.status).toBe(404);
   });

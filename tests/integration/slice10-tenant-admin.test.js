@@ -32,6 +32,11 @@ describe('slice 10 - tenant admin basics', () => {
       host: `${tenant.slug}.zanflo.com`,
       cookie: officerCookie,
     });
+    const applicationSetupResponse = await fetchWorker('https://example.test/api/admin/application-setup', {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: officerCookie,
+    });
     const auditResponse = await fetchWorker('https://example.test/api/admin/audit', {
       method: 'GET',
       host: `${tenant.slug}.zanflo.com`,
@@ -40,6 +45,7 @@ describe('slice 10 - tenant admin basics', () => {
 
     expect(usersResponse.status).toBe(403);
     expect(settingsResponse.status).toBe(403);
+    expect(applicationSetupResponse.status).toBe(403);
     expect(auditResponse.status).toBe(403);
   });
 
@@ -210,4 +216,47 @@ describe('slice 10 - tenant admin basics', () => {
     expect(publicJson.tenant.display_name).toBe('Test Tenant Settings Save Council');
     expect(publicJson.tenant.welcome_text).toBe('Welcome to the tenant licensing service.');
   }, 10000);
+
+  it('tenant admin owns application setup and officers do not', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-tenant-application-setup' });
+    const admin = await createStaffFixture({ tenantId: tenant.id, role: 'tenant_admin' });
+    const officer = await createStaffFixture({ tenantId: tenant.id, role: 'officer' });
+    const adminCookie = await loginStaff(tenant.slug, admin.email, admin.password);
+    const officerCookie = await loginStaff(tenant.slug, officer.email, officer.password);
+
+    const forbiddenResponse = await fetchWorker('https://example.test/api/admin/application-setup', {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: officerCookie,
+    });
+    expect(forbiddenResponse.status).toBe(403);
+
+    const updateResponse = await fetchWorker('https://example.test/api/admin/application-setup', {
+      method: 'PUT',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: adminCookie,
+      body: {
+        copy: {
+          application_intro_text: 'Use your saved premises to begin.',
+          applicant_guidance_text: 'Contact details can be changed per application.',
+        },
+        field_settings: [
+          {
+            field_key: 'contact_phone',
+            label_override: 'Case contact phone',
+            help_text: 'Best number for case updates',
+            enabled: true,
+            required: false,
+            sensitive: true,
+          },
+        ],
+      },
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const json = await readJson(updateResponse);
+    expect(json.setup.copy.application_intro_text).toBe('Use your saved premises to begin.');
+    expect(json.setup.field_settings.find((field) => field.field_key === 'contact_phone')?.label_override)
+      .toBe('Case contact phone');
+  });
 });

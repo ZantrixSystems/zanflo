@@ -104,6 +104,16 @@ export default function TenantAdminDashboardPage() {
 
             <article className="dashboard-url-row">
               <div className="dashboard-url-copy">
+                <h2>Application setup</h2>
+                <p>For tenant admins to manage the current applicant journey foundation and future council-owned application configuration.</p>
+              </div>
+              <div className="dashboard-url-meta">
+                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/application-setup`}</strong>
+              </div>
+            </article>
+
+            <article className="dashboard-url-row">
+              <div className="dashboard-url-copy">
                 <h2>Audit log</h2>
                 <p>For tenant admins to review recent tenant-scoped activity and support operational checks.</p>
               </div>
@@ -147,6 +157,15 @@ export default function TenantAdminDashboardPage() {
           </article>
           <article className="dashboard-action-row">
             <div className="dashboard-action-copy">
+              <h2>Application setup</h2>
+              <p>Own the council-side setup for applicant guidance and the bounded field metadata foundation.</p>
+            </div>
+            <div className="dashboard-action-controls">
+              <Link className="btn btn-secondary" to="/admin/application-setup">Open</Link>
+            </div>
+          </article>
+          <article className="dashboard-action-row">
+            <div className="dashboard-action-copy">
               <h2>Identity and SSO</h2>
               <p>{settings.sso.auth_runtime_status === 'configuration_only' ? 'Configuration can be saved now. Live SSO sign-in is not active yet.' : settings.sso.auth_runtime_status}</p>
             </div>
@@ -170,26 +189,30 @@ export default function TenantAdminDashboardPage() {
           </article>
         )}
 
-        <article className="dashboard-action-row">
-          <div className="dashboard-action-copy">
-            <h2>Tenant users</h2>
-            <p>Manage tenant staff access and role assignment within this council only.</p>
-          </div>
-          <div className="dashboard-action-controls">
-            <Link className="btn btn-secondary" to="/admin/users">Manage</Link>
-          </div>
-        </article>
+        {session.role === 'tenant_admin' && (
+          <article className="dashboard-action-row">
+            <div className="dashboard-action-copy">
+              <h2>Tenant users</h2>
+              <p>Manage tenant staff access and role assignment within this council only.</p>
+            </div>
+            <div className="dashboard-action-controls">
+              <Link className="btn btn-secondary" to="/admin/users">Manage</Link>
+            </div>
+          </article>
+        )}
 
-        <article className="dashboard-action-row">
-          <div className="dashboard-action-copy">
-            <h2>Settings and audit</h2>
-            <p>Keep tenant contact details current and review recent tenant-scoped activity.</p>
-          </div>
-          <div className="dashboard-action-controls dashboard-action-controls-double">
-            <Link className="btn btn-secondary" to="/admin/settings">Settings</Link>
-            <Link className="btn btn-secondary" to="/admin/audit">Audit</Link>
-          </div>
-        </article>
+        {session.role === 'tenant_admin' && (
+          <article className="dashboard-action-row">
+            <div className="dashboard-action-copy">
+              <h2>Settings and audit</h2>
+              <p>Keep tenant contact details current and review recent tenant-scoped activity.</p>
+            </div>
+            <div className="dashboard-action-controls dashboard-action-controls-double">
+              <Link className="btn btn-secondary" to="/admin/settings">Settings</Link>
+              <Link className="btn btn-secondary" to="/admin/audit">Audit</Link>
+            </div>
+          </article>
+        )}
       </section>
 
       <section className="form-section">

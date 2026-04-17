@@ -15,11 +15,12 @@
  *
  * Field groups (the general form):
  *   Applicant info:  applicant_name, applicant_email, applicant_phone
- *   Premises info:   premises_name, premises_address, premises_postcode, premises_description
+ *   Premises info:   premises_id plus snapshot fields on the application for
+ *                    legal traceability over time
  *   Contact info:    contact_name, contact_email, contact_phone
  *   (contact = the person councils should correspond with — may differ from applicant)
  *
- * application_type_id is required at creation.
+ * application_type_id and premises_id are required at creation.
  * All other fields can be saved as drafts in any order.
  */
 
@@ -30,6 +31,7 @@ import {
   encryptApplicationApplicantPhone,
   serialiseApplicationForResponse,
 } from '../lib/field-encryption.js';
+import { buildApplicationPremisesSnapshot } from '../lib/premises.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,7 +59,7 @@ const SUBMIT_REQUIRED_FIELDS = [
 
 // ---------------------------------------------------------------------------
 // POST /applications
-// Start a new draft application. application_type_id required.
+// Start a new draft application. application_type_id and premises_id required.
 // ---------------------------------------------------------------------------
 async function createApplication(request, env) {
   const session = await requireApplicant(request, env);
@@ -70,8 +72,9 @@ async function createApplication(request, env) {
     return error('Invalid JSON body');
   }
 
-  const { application_type_id } = body;
+  const { application_type_id, premises_id } = body;
   if (!application_type_id) return error('application_type_id is required');
+  if (!premises_id) return error('premises_id is required');
 
   const sql = getDb(env);
 
@@ -101,11 +104,24 @@ async function createApplication(request, env) {
   `;
   if (typeCheck.length === 0) return error('Application type not available for this tenant', 400);
 
+  const premisesRows = await sql`
+    SELECT *
+    FROM premises
+    WHERE id = ${premises_id}
+      AND tenant_id = ${session.tenant_id}
+      AND applicant_account_id = ${session.applicant_account_id}
+    LIMIT 1
+  `;
+  if (premisesRows.length === 0) return error('Premises not found for this applicant', 404);
+
+  const premisesSnapshot = buildApplicationPremisesSnapshot(premisesRows[0]);
+
   const rows = await sql`
     INSERT INTO applications (
       tenant_id,
       applicant_account_id,
       application_type_id,
+      premises_id,
       applicant_name,
       applicant_email,
       applicant_phone,
@@ -122,13 +138,14 @@ async function createApplication(request, env) {
       ${session.tenant_id},
       ${session.applicant_account_id},
       ${application_type_id},
+      ${premises_id},
       ${session.full_name},
       ${session.email},
       ${null},
-      ${null},
-      ${null},
-      ${null},
-      ${null},
+      ${premisesSnapshot.premises_name},
+      ${premisesSnapshot.premises_address},
+      ${premisesSnapshot.premises_postcode},
+      ${premisesSnapshot.premises_description},
       ${null},
       ${null},
       ${null},
@@ -147,7 +164,7 @@ async function createApplication(request, env) {
     action:     'application.created',
     recordType: 'application',
     recordId:   application.id,
-    meta:       { application_type_id },
+    meta:       { application_type_id, premises_id },
   });
 
   return json(await serialiseApplicationForResponse(application, env), 201);
@@ -168,6 +185,7 @@ async function listApplications(request, env) {
       a.id,
       a.status,
       a.applicant_name,
+      a.premises_id,
       a.premises_name,
       a.created_at,
       a.updated_at,
@@ -199,9 +217,18 @@ async function getApplication(request, env, id) {
   const rows = await sql`
     SELECT
       a.*,
+      p.address_line_1,
+      p.address_line_2,
+      p.town_or_city,
+      p.postcode AS linked_premises_postcode,
+      p.premises_name AS linked_premises_name,
+      p.premises_description AS linked_premises_description,
       at.name AS application_type_name,
       at.slug AS application_type_slug
     FROM applications a
+    LEFT JOIN premises p
+      ON p.id = a.premises_id
+      AND p.tenant_id = a.tenant_id
     LEFT JOIN application_types at ON at.id = a.application_type_id
     WHERE a.id                   = ${id}
       AND a.tenant_id            = ${session.tenant_id}
@@ -233,7 +260,7 @@ async function updateApplication(request, env, id) {
 
   // Fetch and enforce ownership + tenant scope
   const existing = await sql`
-    SELECT id, status, tenant_id
+    SELECT id, status, tenant_id, premises_id
     FROM applications
     WHERE id                   = ${id}
       AND tenant_id            = ${session.tenant_id}
@@ -282,10 +309,12 @@ async function updateApplication(request, env, id) {
     addField('applicant_phone_kms_key_version',  encryptedApplicantPhone.kmsKeyVersion);
     addField('applicant_phone_encryption_scheme', encryptedApplicantPhone.encryptionScheme);
   }
-  if (has('premises_name'))        addField('premises_name',        premises_name);
-  if (has('premises_address'))     addField('premises_address',     premises_address);
-  if (has('premises_postcode'))    addField('premises_postcode',    premises_postcode);
-  if (has('premises_description')) addField('premises_description', premises_description);
+  if (!existing[0].premises_id) {
+    if (has('premises_name'))        addField('premises_name',        premises_name);
+    if (has('premises_address'))     addField('premises_address',     premises_address);
+    if (has('premises_postcode'))    addField('premises_postcode',    premises_postcode);
+    if (has('premises_description')) addField('premises_description', premises_description);
+  }
   if (has('contact_name'))         addField('contact_name',         contact_name);
   if (has('contact_email'))        addField('contact_email',        contact_email);
   if (has('contact_phone'))        addField('contact_phone',        contact_phone);

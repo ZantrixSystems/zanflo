@@ -22,6 +22,12 @@ async function loadApplicationForTenant(sql, tenantId, applicationId) {
   const rows = await sql`
     SELECT
       a.*,
+      p.address_line_1,
+      p.address_line_2,
+      p.town_or_city,
+      p.postcode AS linked_premises_postcode,
+      p.premises_name AS linked_premises_name,
+      p.premises_description AS linked_premises_description,
       at.name AS application_type_name,
       at.slug AS application_type_slug,
       aa.full_name AS applicant_account_name,
@@ -29,6 +35,9 @@ async function loadApplicationForTenant(sql, tenantId, applicationId) {
       assigned_user.full_name AS assigned_user_name,
       assigned_user.email AS assigned_user_email
     FROM applications a
+    LEFT JOIN premises p
+      ON p.id = a.premises_id
+      AND p.tenant_id = a.tenant_id
     LEFT JOIN application_types at ON at.id = a.application_type_id
     LEFT JOIN applicant_accounts aa ON aa.id = a.applicant_account_id
     LEFT JOIN users assigned_user ON assigned_user.id = a.assigned_user_id
@@ -86,6 +95,7 @@ async function listApplications(request, env) {
     SELECT
       a.id,
       a.status,
+      a.premises_id,
       a.premises_name,
       a.premises_postcode,
       a.contact_name,

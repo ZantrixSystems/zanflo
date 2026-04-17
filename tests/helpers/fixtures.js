@@ -64,6 +64,51 @@ export async function createApplicantFixture({
   }
 }
 
+export async function createPremisesFixture({
+  tenantId,
+  applicantAccountId,
+  premisesName = 'Test Premises',
+  addressLine1 = '1 Test Street',
+  addressLine2 = null,
+  townOrCity = 'Test Town',
+  postcode = 'TE1 1ST',
+  premisesDescription = null,
+} = {}) {
+  const pool = createTestPool();
+  const client = await pool.connect();
+
+  try {
+    const result = await client.query(`
+      INSERT INTO premises (
+        tenant_id,
+        applicant_account_id,
+        premises_name,
+        address_line_1,
+        address_line_2,
+        town_or_city,
+        postcode,
+        premises_description
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      tenantId,
+      applicantAccountId,
+      premisesName,
+      addressLine1,
+      addressLine2,
+      townOrCity,
+      postcode,
+      premisesDescription,
+    ]);
+
+    return result.rows[0];
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
 export async function createStaffFixture({
   tenantId,
   role = 'officer',
@@ -101,6 +146,7 @@ export async function createStaffFixture({
 export async function createApplicationFixture({
   tenantId,
   applicantAccountId,
+  premisesId = null,
   status = 'draft',
   assignedUserId = null,
   assignedAt = null,
@@ -117,11 +163,31 @@ export async function createApplicationFixture({
       LIMIT 1
     `);
 
+    let resolvedPremisesId = premisesId;
+    if (!resolvedPremisesId && applicantAccountId) {
+      const premises = await client.query(`
+        INSERT INTO premises (
+          tenant_id,
+          applicant_account_id,
+          premises_name,
+          address_line_1,
+          address_line_2,
+          town_or_city,
+          postcode,
+          premises_description
+        )
+        VALUES ($1, $2, 'Test Premises', '1 Test Street', NULL, 'Test Town', 'TE1 1ST', NULL)
+        RETURNING id
+      `, [tenantId, applicantAccountId]);
+      resolvedPremisesId = premises.rows[0].id;
+    }
+
     const result = await client.query(`
       INSERT INTO applications (
         tenant_id,
         applicant_account_id,
         application_type_id,
+        premises_id,
         applicant_name,
         applicant_email,
         applicant_phone,
@@ -142,27 +208,29 @@ export async function createApplicationFixture({
         $1,
         $2,
         $3,
-        'Test Applicant',
         $4,
+        'Test Applicant',
+        $5,
         NULL,
         'Test Premises',
-        '1 Test Street',
+        '1 Test Street\nTest Town',
         'TE1 1ST',
         NULL,
         'Test Applicant',
-        $4,
-        NULL,
         $5,
+        NULL,
         $6,
         $7,
-        COALESCE($8, CASE WHEN $5 = 'draft' THEN NULL ELSE NOW() END),
-        CASE WHEN $5 = 'draft' THEN NOW() + INTERVAL '30 days' ELSE NULL END
+        $8,
+        COALESCE($9, CASE WHEN $6 = 'draft' THEN NULL ELSE NOW() END),
+        CASE WHEN $6 = 'draft' THEN NOW() + INTERVAL '30 days' ELSE NULL END
       )
       RETURNING id, tenant_id, applicant_account_id, status
     `, [
       tenantId,
       applicantAccountId,
       appType.rows[0].id,
+      resolvedPremisesId,
       makeTestEmail(`app-ref-${randomUUID().slice(0, 8)}`),
       status,
       assignedUserId,

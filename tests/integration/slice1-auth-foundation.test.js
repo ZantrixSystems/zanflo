@@ -3,6 +3,7 @@ import { createTestPool, resetTestData } from '../helpers/db.js';
 import {
   createApplicantFixture,
   createApplicationFixture,
+  createPremisesFixture,
   createStaffFixture,
   createTenantFixture,
 } from '../helpers/fixtures.js';
@@ -308,9 +309,13 @@ describe('slice 1 - auth foundation', () => {
         email: applicant.email,
         password: applicant.password,
       },
-    });
+      });
 
-    const sessionCookie = getCookie(loginResponse, 'applicant_session');
+      const sessionCookie = getCookie(loginResponse, 'applicant_session');
+      const premises = await createPremisesFixture({
+        tenantId: tenant.id,
+        applicantAccountId: applicant.id,
+      });
 
     const typesResponse = await fetchWorker('https://example.test/api/application-types', {
       method: 'GET',
@@ -320,12 +325,13 @@ describe('slice 1 - auth foundation', () => {
 
     const createResponse = await fetchWorker('https://example.test/api/applications', {
       method: 'POST',
-      host: `${tenant.slug}.zanflo.com`,
-      cookie: sessionCookie,
-      body: {
-        application_type_id: typesJson.application_types[0].id,
-      },
-    });
+        host: `${tenant.slug}.zanflo.com`,
+        cookie: sessionCookie,
+        body: {
+          application_type_id: typesJson.application_types[0].id,
+          premises_id: premises.id,
+        },
+      });
 
     expect(createResponse.status).toBe(201);
     const application = await readJson(createResponse);
@@ -365,6 +371,189 @@ describe('slice 1 - auth foundation', () => {
         email: applicant.email,
         password: applicant.password,
       },
+      });
+
+      const sessionCookie = getCookie(loginResponse, 'applicant_session');
+      const premises = await createPremisesFixture({
+        tenantId: tenant.id,
+        applicantAccountId: applicant.id,
+      });
+
+    const typesResponse = await fetchWorker('https://example.test/api/application-types', {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+    });
+    const typesJson = await readJson(typesResponse);
+
+    const createResponse = await fetchWorker('https://example.test/api/applications', {
+      method: 'POST',
+        host: `${tenant.slug}.zanflo.com`,
+        cookie: sessionCookie,
+        body: {
+          application_type_id: typesJson.application_types[0].id,
+          premises_id: premises.id,
+        },
+      });
+
+    expect(createResponse.status).toBe(201);
+    const application = await readJson(createResponse);
+
+    const updateResponse = await fetchWorker(`https://example.test/api/applications/${application.id}`, {
+      method: 'PUT',
+        host: `${tenant.slug}.zanflo.com`,
+        cookie: sessionCookie,
+        body: {
+          applicant_phone: '07700 900123',
+        },
+        envOverrides: {
+          GOOGLE_KMS_KEY_NAME: '',
+        GOOGLE_SERVICE_ACCOUNT_EMAIL: '',
+        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: '',
+      },
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const updated = await readJson(updateResponse);
+    expect(updated.applicant_phone).toBe('07700 900123');
+    expect(updated.premises_name).toBe('Test Premises');
+  });
+
+  it('applicant can create and update premises within their own tenant', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-premises-crud' });
+    const applicant = await createApplicantFixture({ tenantId: tenant.id });
+
+    const loginResponse = await fetchWorker('https://example.test/api/applicant/login', {
+      method: 'POST',
+      host: `${tenant.slug}.zanflo.com`,
+      body: {
+        email: applicant.email,
+        password: applicant.password,
+      },
+    });
+
+    const sessionCookie = getCookie(loginResponse, 'applicant_session');
+
+    const createResponse = await fetchWorker('https://example.test/api/premises', {
+      method: 'POST',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+      body: {
+        premises_name: 'Riverside Hall',
+        address_line_1: '1 Market Street',
+        town_or_city: 'Riverside',
+        postcode: 'RV1 1AA',
+        premises_description: 'Community venue',
+      },
+    });
+
+    expect(createResponse.status).toBe(201);
+    const created = await readJson(createResponse);
+    expect(created.premises_name).toBe('Riverside Hall');
+
+    const updateResponse = await fetchWorker(`https://example.test/api/premises/${created.id}`, {
+      method: 'PUT',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+      body: {
+        premises_name: 'Riverside Hall Updated',
+        address_line_1: '2 Market Street',
+        town_or_city: 'Riverside',
+        postcode: 'RV1 1AA',
+        premises_description: 'Updated venue',
+      },
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const updated = await readJson(updateResponse);
+    expect(updated.premises_name).toBe('Riverside Hall Updated');
+  });
+
+  it('updating premises syncs editable linked application snapshots but keeps the same premises link', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-premises-sync' });
+    const applicant = await createApplicantFixture({ tenantId: tenant.id });
+    const premises = await createPremisesFixture({
+      tenantId: tenant.id,
+      applicantAccountId: applicant.id,
+      premisesName: 'Original Premises',
+      addressLine1: '1 Original Street',
+      townOrCity: 'Original Town',
+      postcode: 'OR1 1AA',
+    });
+
+    const loginResponse = await fetchWorker('https://example.test/api/applicant/login', {
+      method: 'POST',
+      host: `${tenant.slug}.zanflo.com`,
+      body: {
+        email: applicant.email,
+        password: applicant.password,
+      },
+    });
+
+    const sessionCookie = getCookie(loginResponse, 'applicant_session');
+    const typesResponse = await fetchWorker('https://example.test/api/application-types', {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+    });
+    const typesJson = await readJson(typesResponse);
+
+    const createResponse = await fetchWorker('https://example.test/api/applications', {
+      method: 'POST',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+      body: {
+        application_type_id: typesJson.application_types[0].id,
+        premises_id: premises.id,
+      },
+    });
+
+    expect(createResponse.status).toBe(201);
+    const application = await readJson(createResponse);
+
+    const updateResponse = await fetchWorker(`https://example.test/api/premises/${premises.id}`, {
+      method: 'PUT',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+      body: {
+        premises_name: 'Updated Premises',
+        address_line_1: '2 Updated Street',
+        town_or_city: 'Updated Town',
+        postcode: 'UP1 2BB',
+        premises_description: 'Updated description',
+      },
+    });
+
+    expect(updateResponse.status).toBe(200);
+
+    const applicationResponse = await fetchWorker(`https://example.test/api/applications/${application.id}`, {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+    });
+
+    expect(applicationResponse.status).toBe(200);
+    const updatedApplication = await readJson(applicationResponse);
+    expect(updatedApplication.premises_id).toBe(premises.id);
+    expect(updatedApplication.premises_name).toBe('Updated Premises');
+    expect(updatedApplication.premises_postcode).toBe('UP1 2BB');
+  });
+
+  it('blocks applicant from starting an application against another applicants premises', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-premises-ownership' });
+    const applicantA = await createApplicantFixture({ tenantId: tenant.id });
+    const applicantB = await createApplicantFixture({ tenantId: tenant.id });
+    const premises = await createPremisesFixture({
+      tenantId: tenant.id,
+      applicantAccountId: applicantA.id,
+      premisesName: 'Applicant A Premises',
+    });
+
+    const loginResponse = await fetchWorker('https://example.test/api/applicant/login', {
+      method: 'POST',
+      host: `${tenant.slug}.zanflo.com`,
+      body: {
+        email: applicantB.email,
+        password: applicantB.password,
+      },
     });
 
     const sessionCookie = getCookie(loginResponse, 'applicant_session');
@@ -381,31 +570,11 @@ describe('slice 1 - auth foundation', () => {
       cookie: sessionCookie,
       body: {
         application_type_id: typesJson.application_types[0].id,
+        premises_id: premises.id,
       },
     });
 
-    expect(createResponse.status).toBe(201);
-    const application = await readJson(createResponse);
-
-    const updateResponse = await fetchWorker(`https://example.test/api/applications/${application.id}`, {
-      method: 'PUT',
-      host: `${tenant.slug}.zanflo.com`,
-      cookie: sessionCookie,
-      body: {
-        applicant_phone: '07700 900123',
-        premises_name: 'Test Premises',
-      },
-      envOverrides: {
-        GOOGLE_KMS_KEY_NAME: '',
-        GOOGLE_SERVICE_ACCOUNT_EMAIL: '',
-        GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: '',
-      },
-    });
-
-    expect(updateResponse.status).toBe(200);
-    const updated = await readJson(updateResponse);
-    expect(updated.applicant_phone).toBe('07700 900123');
-    expect(updated.premises_name).toBe('Test Premises');
+    expect(createResponse.status).toBe(404);
   });
 
   it('blocks cross-tenant applicant access', async () => {

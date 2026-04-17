@@ -3,6 +3,7 @@ import { createTestPool, resetTestData } from '../helpers/db.js';
 import {
   createApplicantFixture,
   createApplicationFixture,
+  createPremisesFixture,
   createStaffFixture,
   createTenantFixture,
 } from '../helpers/fixtures.js';
@@ -159,5 +160,39 @@ describe('slice 8 - admin applications', () => {
       client.release();
       await pool.end();
     }
+  });
+
+  it('staff application detail returns linked premises context for the same tenant only', async () => {
+    const tenant = await createTenantFixture({ slug: 'test-admin-premises-detail' });
+    const officer = await createStaffFixture({ tenantId: tenant.id, role: 'officer' });
+    const applicant = await createApplicantFixture({ tenantId: tenant.id });
+    const premises = await createPremisesFixture({
+      tenantId: tenant.id,
+      applicantAccountId: applicant.id,
+      premisesName: 'River View Venue',
+      addressLine1: '10 High Street',
+      townOrCity: 'River Town',
+      postcode: 'RV1 2BB',
+      premisesDescription: 'Events space',
+    });
+    const application = await createApplicationFixture({
+      tenantId: tenant.id,
+      applicantAccountId: applicant.id,
+      premisesId: premises.id,
+      status: 'submitted',
+    });
+
+    const sessionCookie = await loginStaff(tenant.slug, officer.email, officer.password);
+    const response = await fetchWorker(`https://example.test/api/admin/applications/${application.id}`, {
+      method: 'GET',
+      host: `${tenant.slug}.zanflo.com`,
+      cookie: sessionCookie,
+    });
+
+    expect(response.status).toBe(200);
+    const json = await readJson(response);
+    expect(json.application.premises_id).toBe(premises.id);
+    expect(json.application.linked_premises_name).toBe('River View Venue');
+    expect(json.application.address_line_1).toBe('10 High Street');
   });
 });

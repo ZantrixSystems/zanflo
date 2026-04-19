@@ -10,6 +10,102 @@ const EMPTY_FORM = {
   password: '',
 };
 
+const EMPTY_EDIT = {
+  full_name: '',
+  role: 'officer',
+  password: '',
+};
+
+function EditUserModal({ user, onClose, onSaved, onError }) {
+  const [form, setForm] = useState({
+    full_name: user.full_name || '',
+    role: user.role,
+    password: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [localError, setLocalError] = useState('');
+
+  function setField(field, value) {
+    setForm((c) => ({ ...c, [field]: value }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setLocalError('');
+
+    const payload = {};
+    if (form.full_name.trim()) payload.full_name = form.full_name.trim();
+    if (form.role) payload.role = form.role;
+    if (form.password) payload.password = form.password;
+
+    try {
+      await api.updateAdminUser(user.id, payload);
+      onSaved();
+    } catch (err) {
+      setLocalError(err.message || 'Could not update user.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="profile-modal-overlay" onClick={onClose}>
+      <div className="profile-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="profile-modal-header">
+          <h2 className="profile-modal-title">Edit user</h2>
+          <button type="button" className="profile-modal-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        {localError && <div className="alert alert-error">{localError}</div>}
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-group">
+            <label htmlFor="edit-name">Full name</label>
+            <input
+              id="edit-name"
+              value={form.full_name}
+              onChange={(e) => setField('full_name', e.target.value)}
+              placeholder={user.full_name}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="edit-role">Role</label>
+            <select id="edit-role" value={form.role} onChange={(e) => setField('role', e.target.value)}>
+              <option value="tenant_admin">Tenant admin</option>
+              <option value="manager">Manager</option>
+              <option value="officer">Officer</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="edit-password">New password</label>
+            <input
+              id="edit-password"
+              type="password"
+              value={form.password}
+              onChange={(e) => setField('password', e.target.value)}
+              autoComplete="new-password"
+              placeholder="Leave blank to keep current password"
+            />
+            <span className="form-hint">At least 8 characters, one uppercase letter, one number.</span>
+          </div>
+
+          <div className="platform-hero-actions" style={{ marginTop: 20 }}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
+              {saving ? 'Saving...' : 'Save changes'}
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminUsersPage() {
   const { session, logout, refresh } = useStaffAuth();
   const [users, setUsers] = useState([]);
@@ -18,6 +114,7 @@ export default function AdminUsersPage() {
   const [notice, setNotice] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
 
   async function loadUsers() {
     const data = await api.listAdminUsers();
@@ -43,26 +140,20 @@ export default function AdminUsersPage() {
     try {
       await api.createAdminUser(form);
       setForm(EMPTY_FORM);
-      setNotice('Tenant user created.');
+      setNotice('User created.');
       await loadUsers();
     } catch (err) {
-      setError(err.message || 'Could not create tenant user.');
+      setError(err.message || 'Could not create user.');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleRoleChange(userId, role) {
+  async function handleEditSaved() {
+    setEditingUser(null);
+    setNotice('User updated.');
     setError('');
-    setNotice('');
-
-    try {
-      await api.updateAdminUser(userId, { role });
-      setNotice('User role updated.');
-      await loadUsers();
-    } catch (err) {
-      setError(err.message || 'Could not update tenant user.');
-    }
+    await loadUsers();
   }
 
   return (
@@ -96,14 +187,16 @@ export default function AdminUsersPage() {
               <div key={user.id} className="application-row">
                 <div className="application-row-main">
                   <div className="application-row-title">{user.full_name || user.email}</div>
-                  <div className="application-row-meta">{user.email}</div>
+                  <div className="application-row-meta">{user.email} &middot; {user.role.replace('_', ' ')}</div>
                 </div>
-                <div style={{ minWidth: 180 }}>
-                  <select value={user.role} onChange={(event) => handleRoleChange(user.id, event.target.value)}>
-                    <option value="tenant_admin">Tenant admin</option>
-                    <option value="manager">Manager</option>
-                    <option value="officer">Officer</option>
-                  </select>
+                <div className="platform-hero-actions" style={{ margin: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => { setError(''); setNotice(''); setEditingUser(user); }}
+                  >
+                    Edit
+                  </button>
                 </div>
               </div>
             ))}
@@ -112,7 +205,7 @@ export default function AdminUsersPage() {
       </section>
 
       <section className="form-section">
-        <div className="form-section-title">Add tenant user</div>
+        <div className="form-section-title">Add user</div>
         <form onSubmit={handleCreate} noValidate>
           <div className="form-group">
             <label htmlFor="user-email">Email</label>
@@ -131,15 +224,24 @@ export default function AdminUsersPage() {
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="user-password">Password for new user</label>
-            <input id="user-password" type="password" value={form.password} onChange={(event) => updateField('password', event.target.value)} />
+            <label htmlFor="user-password">Password</label>
+            <input id="user-password" type="password" value={form.password} onChange={(event) => updateField('password', event.target.value)} autoComplete="new-password" />
+            <span className="form-hint">Staff sign in with their email address. At least 12 characters required for new accounts.</span>
           </div>
-          <p className="form-hint">Staff sign in with their email address.</p>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? 'Saving...' : 'Create user'}
           </button>
         </form>
       </section>
+
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          onClose={() => setEditingUser(null)}
+          onSaved={handleEditSaved}
+          onError={(msg) => { setError(msg); setEditingUser(null); }}
+        />
+      )}
     </AdminLayout>
   );
 }

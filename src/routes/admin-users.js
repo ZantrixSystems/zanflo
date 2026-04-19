@@ -2,6 +2,7 @@ import { getDb } from '../db/client.js';
 import { writeAuditLog } from '../lib/audit.js';
 import { requireTenantStaff } from '../lib/guards.js';
 import { hashPassword } from '../lib/passwords.js';
+import { validateBootstrapPassword } from '../lib/password-policy.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -139,11 +140,16 @@ async function updateUser(request, env, userId) {
 
   const role = body.role?.trim();
   const fullName = body.full_name?.trim();
+  const password = body.password;
 
-  if (!role && !fullName) {
+  if (!role && !fullName && !password) {
     return error('At least one field must be provided');
   }
   if (role && !['tenant_admin', 'manager', 'officer'].includes(role)) return error('Invalid role');
+  if (password) {
+    const policyError = validateBootstrapPassword(password);
+    if (policyError) return error(policyError);
+  }
 
   const sql = getDb(env);
   const existingRows = await sql`
@@ -162,11 +168,13 @@ async function updateUser(request, env, userId) {
   const existing = existingRows[0];
   if (!existing) return error('User not found', 404);
 
-  if (fullName) {
+  if (fullName || password) {
+    const passwordHash = password ? await hashPassword(password) : null;
     await sql`
       UPDATE users
       SET
-        full_name = COALESCE(${fullName}, full_name)
+        full_name = CASE WHEN ${fullName ?? null} IS NOT NULL THEN ${fullName ?? null} ELSE full_name END,
+        password_hash = CASE WHEN ${passwordHash} IS NOT NULL THEN ${passwordHash} ELSE password_hash END
       WHERE id = ${userId}
     `;
   }
@@ -191,6 +199,7 @@ async function updateUser(request, env, userId) {
       role: role ?? existing.role,
       full_name: fullName ?? existing.full_name,
       username: existing.email,
+      password_reset: password ? true : undefined,
     },
   });
 

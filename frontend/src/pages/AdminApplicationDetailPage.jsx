@@ -140,11 +140,11 @@ export default function AdminApplicationDetailPage() {
       onSessionRefresh={refresh}
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
-        { to: '/admin/applications', label: 'Applications' },
+        { to: '/admin/cases', label: 'Cases' },
         { label: application?.premises_name || 'Case' },
       ]}
     >
-      <Link to="/admin/applications" className="back-link">Back to applications</Link>
+      <Link to="/admin/cases" className="back-link">Back to cases</Link>
 
       {loading ? (
         <div className="spinner">Loading...</div>
@@ -195,15 +195,35 @@ export default function AdminApplicationDetailPage() {
 
               {application.premises_id && (
                 <section className="form-section">
-                  <div className="form-section-title">Linked premises record</div>
+                  <div className="form-section-title">Premises record</div>
+                  <p className="form-section-hint">
+                    Live premises record linked to this application. The application snapshot above was captured at submission.
+                  </p>
                   <dl className="case-data-grid">
                     <DataRow label="Name" value={application.linked_premises_name} />
                     <DataRow label="Address" value={[application.address_line_1, application.address_line_2, application.town_or_city].filter(Boolean).join(', ')} />
                     <DataRow label="Postcode" value={application.linked_premises_postcode} />
                     <DataRow label="Description" value={application.linked_premises_description} />
+                    <DataRow label="Verification status" value={application.linked_premises_verification_state?.replace(/_/g, ' ')} />
                   </dl>
+                  <div style={{ marginTop: 10 }}>
+                    <a
+                      href={`/admin/premises-verifications/${application.premises_id}`}
+                      className="case-context-link"
+                    >
+                      View premises verification case →
+                    </a>
+                  </div>
                 </section>
               )}
+
+              <section className="form-section">
+                <div className="form-section-title">Applicant account</div>
+                <dl className="case-data-grid">
+                  <DataRow label="Name" value={application.applicant_account_name} />
+                  <DataRow label="Email" value={application.applicant_account_email} />
+                </dl>
+              </section>
 
               {/* Case timeline */}
               {buildTimeline().length > 0 && (

@@ -110,6 +110,7 @@ export default function AdminCasesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [typeOptions, setTypeOptions] = useState([]);
+  const [assigningId, setAssigningId] = useState(null);
 
   const viewTitle = (() => {
     if (assigned === 'mine') return 'Assigned to me';
@@ -165,6 +166,25 @@ export default function AdminCasesPage() {
 
   function clearAllFilters() {
     setUrlParams({});
+  }
+
+  async function handleSelfAssign(e, caseId) {
+    e.stopPropagation();
+    setAssigningId(caseId);
+    try {
+      await api.assignAdminApplication(caseId, { assigned_user_id: session.user_id });
+      setCases((prev) =>
+        prev.map((c) =>
+          c.case_id === caseId
+            ? { ...c, assigned_user_id: session.user_id, assigned_user_name: session.full_name }
+            : c
+        )
+      );
+    } catch {
+      // silent — user can open case if needed
+    } finally {
+      setAssigningId(null);
+    }
   }
 
   const hasActiveFilters = !!(status || assigned || caseType || typeSlug || createdDays);
@@ -361,7 +381,18 @@ export default function AdminCasesPage() {
                           ? <span className="queue-assigned-me">You</span>
                           : row.assigned_user_name
                             ? <span className="queue-assigned-other">{row.assigned_user_name}</span>
-                            : <span className="queue-unassigned">—</span>}
+                            : row.case_type === 'application'
+                              ? (
+                                <button
+                                  type="button"
+                                  className="queue-assign-me-btn"
+                                  disabled={assigningId === row.case_id}
+                                  onClick={(e) => handleSelfAssign(e, row.case_id)}
+                                >
+                                  {assigningId === row.case_id ? '…' : 'Assign to me'}
+                                </button>
+                              )
+                              : <span className="queue-unassigned">—</span>}
                       </td>
                       <td className="queue-col-applicant">
                         {row.applicant_name || row.applicant_email || '—'}

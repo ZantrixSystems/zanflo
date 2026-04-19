@@ -13,7 +13,11 @@
       "Bash(curl -s* https://*.zanflo.com*)",
       "Bash(curl -sL* https://*.zanflo.com*)",
       "Bash(curl -sI* https://*.zanflo.com*)",
-      "Read(C:/Users/mrahm/AppData/Roaming/xdg.config/.wrangler/config/**)"
+      "Read(C:/Users/mrahm/AppData/Roaming/xdg.config/.wrangler/config/**)",
+      "Bash(node -e ' *)",
+      "Bash(node scripts/seed-riverside15.js)",
+      "Bash(grep -E \"\\\\.js$\")",
+      "Bash(grep -E \"\\\\.jsx$\")"
     ],
     "additionalDirectories": [
       "C:\\git\\zanflo\\zanflo"

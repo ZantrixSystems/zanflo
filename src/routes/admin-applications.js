@@ -28,10 +28,12 @@ async function loadApplicationForTenant(sql, tenantId, applicationId) {
       p.postcode AS linked_premises_postcode,
       p.premises_name AS linked_premises_name,
       p.premises_description AS linked_premises_description,
+      p.verification_state AS linked_premises_verification_state,
       at.name AS application_type_name,
       at.slug AS application_type_slug,
       aa.full_name AS applicant_account_name,
       aa.email AS applicant_account_email,
+      aa.phone AS applicant_account_phone,
       assigned_user.full_name AS assigned_user_name,
       assigned_user.email AS assigned_user_email
     FROM applications a

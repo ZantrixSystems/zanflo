@@ -78,8 +78,11 @@ async function run() {
   `;
   await sql`INSERT INTO tenant_sso_configs (tenant_id) VALUES (${tenant.id}) ON CONFLICT DO NOTHING`;
 
-  // Enable all active application types and create published versions
-  const appTypes = await sql`SELECT id, slug, name FROM application_types WHERE is_active = true`;
+  // Enable MVP application types only (premises_licence + late_night_refreshment)
+  const appTypes = await sql`
+    SELECT id, slug, name FROM application_types
+    WHERE is_active = true AND slug IN ('premises_licence', 'late_night_refreshment')
+  `;
   for (const at of appTypes) {
     await sql`INSERT INTO tenant_enabled_application_types (tenant_id, application_type_id) VALUES (${tenant.id}, ${at.id}) ON CONFLICT DO NOTHING`;
     await sql`

@@ -25,6 +25,42 @@ function CopyButton({ text }) {
   );
 }
 
+function OfficerDashboard({ session }) {
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    api.getAdminQueueStats().then(setStats).catch(() => {});
+  }, []);
+
+  const s = stats?.stats;
+
+  return (
+    <section className="officer-dashboard">
+      <div className="officer-stat-grid">
+        <Link to="/admin/applications?assigned=mine" className="officer-stat-card officer-stat-mine">
+          <div className="officer-stat-number">{s?.assigned_to_me ?? '—'}</div>
+          <div className="officer-stat-label">Assigned to you</div>
+        </Link>
+        <Link to="/admin/applications?assigned=unassigned" className="officer-stat-card officer-stat-unassigned">
+          <div className="officer-stat-number">{s?.unassigned ?? '—'}</div>
+          <div className="officer-stat-label">Unassigned</div>
+        </Link>
+        <Link to="/admin/applications?status=submitted" className="officer-stat-card officer-stat-submitted">
+          <div className="officer-stat-number">{s?.submitted ?? '—'}</div>
+          <div className="officer-stat-label">Awaiting review</div>
+        </Link>
+        <Link to="/admin/applications?status=awaiting_information" className="officer-stat-card officer-stat-waiting">
+          <div className="officer-stat-number">{s?.awaiting_information ?? '—'}</div>
+          <div className="officer-stat-label">Awaiting info</div>
+        </Link>
+      </div>
+      <div className="officer-queue-link">
+        <Link to="/admin/applications" className="btn btn-primary">Open full queue</Link>
+      </div>
+    </section>
+  );
+}
+
 export default function TenantAdminDashboardPage() {
   const { session, logout } = useStaffAuth();
   const [searchParams] = useSearchParams();
@@ -212,17 +248,7 @@ export default function TenantAdminDashboardPage() {
 
       {/* Quick actions for officers/managers */}
       {['officer', 'manager'].includes(session.role) && (
-        <section className="dashboard-action-list">
-          <article className="dashboard-action-row">
-            <div className="dashboard-action-copy">
-              <h2>Application queue</h2>
-              <p>Pick up submitted applications, review current cases, and complete decisions.</p>
-            </div>
-            <div className="dashboard-action-controls">
-              <Link className="btn btn-primary" to="/admin/applications">Open queue</Link>
-            </div>
-          </article>
-        </section>
+        <OfficerDashboard session={session} />
       )}
 
       {/* Tenant admin actions */}

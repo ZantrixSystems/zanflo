@@ -16,6 +16,7 @@ Define the intended MVP behaviour for tenant onboarding, break-glass admin issua
 - The first tenant admin account is a break-glass account issued during manual onboarding
 - The self-service demo path also issues a break-glass tenant admin account, but the first sign-in must be exchanged onto the tenant host using a one-time bootstrap handoff rather than a shared cross-subdomain session cookie
 - The break-glass account uses local username/email plus password auth even if SSO is enabled later
+- The self-service council signup password must be at least 8 characters and include at least one uppercase letter and one number; lowercase letters and symbols are optional
 - Platform roles and tenant roles remain separate concerns
 - Additional tenant staff access uses tenant-scoped memberships and tenant roles only
 - Role assignments must use existing tenant roles only: `tenant_admin`, `manager`, `officer`

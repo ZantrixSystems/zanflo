@@ -166,8 +166,8 @@ describe('slice 11 - platform manual onboarding', () => {
         subdomain_slug: 'test-bootstrap-exchange-council',
         admin_full_name: 'Bootstrap Owner',
         admin_email: 'bootstrap-owner@test-zanflo.test',
-        password: 'BootstrapDemoPassword123!',
-        password_confirmation: 'BootstrapDemoPassword123!',
+        password: 'Council12',
+        password_confirmation: 'Council12',
         accept_terms: true,
       },
     });

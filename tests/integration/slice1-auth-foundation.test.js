@@ -194,8 +194,8 @@ describe('slice 1 - auth foundation', () => {
         subdomain_slug: 'test-self-serve-council',
         admin_full_name: 'Bootstrap Admin',
         admin_email: 'bootstrap-admin@test-zanflo.test',
-        password: 'BootstrapDemoPassword123!',
-        password_confirmation: 'BootstrapDemoPassword123!',
+        password: 'Council12',
+        password_confirmation: 'Council12',
         accept_terms: true,
       },
     });
@@ -215,8 +215,8 @@ describe('slice 1 - auth foundation', () => {
         subdomain_slug: 'test-blocked-council',
         admin_full_name: 'Blocked Admin',
         admin_email: 'blocked@test-zanflo.test',
-        password: 'BootstrapDemoPassword123!',
-        password_confirmation: 'BootstrapDemoPassword123!',
+        password: 'Council12',
+        password_confirmation: 'Council12',
         accept_terms: true,
       },
     });

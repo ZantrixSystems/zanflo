@@ -132,7 +132,7 @@ export default function ApexCouncilSignupPage() {
               required
             />
             <span className="form-hint">
-              This is your high-privilege local break glass account for first setup and emergency access. Use at least 20 characters, including uppercase, lowercase, a number, and a symbol.
+              This is your high-privilege local break glass account for first setup and emergency access. Use at least 8 characters, including an uppercase letter and a number.
             </span>
           </div>
 

@@ -49,7 +49,7 @@ export default function TenantBootstrapExchangePage() {
 
     const token = searchParams.get('token');
     if (!token) {
-      setError('Bootstrap link is missing its token.');
+      setError('Sign-in link is missing its token.');
       return;
     }
 
@@ -73,7 +73,7 @@ export default function TenantBootstrapExchangePage() {
       .catch((err) => {
         clearTimeout(minTimer);
         stepTimers.forEach(clearTimeout);
-        setError(err.message || 'Bootstrap sign-in failed.');
+        setError(err.message || 'Sign-in failed. Please try again.');
       });
 
     return () => {

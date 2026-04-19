@@ -168,15 +168,13 @@ async function updateUser(request, env, userId) {
   const existing = existingRows[0];
   if (!existing) return error('User not found', 404);
 
-  if (fullName || password) {
-    const passwordHash = password ? await hashPassword(password) : null;
-    await sql`
-      UPDATE users
-      SET
-        full_name = CASE WHEN ${fullName ?? null} IS NOT NULL THEN ${fullName ?? null} ELSE full_name END,
-        password_hash = CASE WHEN ${passwordHash} IS NOT NULL THEN ${passwordHash} ELSE password_hash END
-      WHERE id = ${userId}
-    `;
+  if (fullName) {
+    await sql`UPDATE users SET full_name = ${fullName} WHERE id = ${userId}`;
+  }
+
+  if (password) {
+    const passwordHash = await hashPassword(password);
+    await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${userId}`;
   }
 
   if (role) {

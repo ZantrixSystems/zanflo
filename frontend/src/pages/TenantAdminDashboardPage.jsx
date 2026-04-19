@@ -24,39 +24,133 @@ function CopyButton({ text }) {
   );
 }
 
+const STATUS_META = {
+  submitted:            { label: 'Submitted',            cls: 'badge-submitted' },
+  under_review:         { label: 'Under review',         cls: 'badge-under-review' },
+  awaiting_information: { label: 'Awaiting info',        cls: 'badge-awaiting' },
+  approved:             { label: 'Approved',             cls: 'badge-approved' },
+  refused:              { label: 'Refused',              cls: 'badge-refused' },
+  draft:                { label: 'Draft',                cls: 'badge-draft' },
+};
+
+function StatusBadge({ status }) {
+  const meta = STATUS_META[status] ?? { label: status?.replace(/_/g, ' ') ?? '—', cls: 'badge-draft' };
+  return <span className={`status-badge ${meta.cls}`}>{meta.label}</span>;
+}
+
+function formatRefId(tenantSlug, refNumber) {
+  if (!refNumber) return '—';
+  const prefix = (tenantSlug || 'APP').slice(0, 4).toUpperCase();
+  return `${prefix}-${String(refNumber).padStart(6, '0')}`;
+}
+
+function formatShortDate(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
 function OfficerDashboard({ session }) {
   const [stats, setStats] = useState(null);
+  const [cases, setCases] = useState([]);
+  const [casesLoading, setCasesLoading] = useState(true);
 
   useEffect(() => {
     api.getAdminQueueStats().then(setStats).catch(() => {});
+    api.listAdminApplications({ assigned: 'mine', sort: 'updated' })
+      .then((data) => setCases((data.applications ?? []).slice(0, 8)))
+      .catch(() => {})
+      .finally(() => setCasesLoading(false));
   }, []);
 
   const s = stats?.stats;
 
   return (
-    <section className="officer-dashboard">
-      <div className="officer-stat-grid">
-        <Link to="/admin/applications?assigned=mine" className="officer-stat-card officer-stat-mine">
-          <div className="officer-stat-number">{s?.assigned_to_me ?? '—'}</div>
-          <div className="officer-stat-label">Assigned to you</div>
-        </Link>
-        <Link to="/admin/applications?assigned=unassigned" className="officer-stat-card officer-stat-unassigned">
-          <div className="officer-stat-number">{s?.unassigned ?? '—'}</div>
-          <div className="officer-stat-label">Unassigned</div>
-        </Link>
-        <Link to="/admin/applications?status=submitted" className="officer-stat-card officer-stat-submitted">
-          <div className="officer-stat-number">{s?.submitted ?? '—'}</div>
-          <div className="officer-stat-label">Awaiting review</div>
-        </Link>
-        <Link to="/admin/applications?status=awaiting_information" className="officer-stat-card officer-stat-waiting">
-          <div className="officer-stat-number">{s?.awaiting_information ?? '—'}</div>
-          <div className="officer-stat-label">Awaiting info</div>
-        </Link>
-      </div>
-      <div className="officer-queue-link">
-        <Link to="/admin/applications" className="btn btn-primary">Open full queue</Link>
-      </div>
-    </section>
+    <>
+      <section className="officer-dashboard">
+        <div className="officer-stat-grid">
+          <Link to="/admin/applications?assigned=mine" className="officer-stat-card officer-stat-mine">
+            <div className="officer-stat-number">{s?.assigned_to_me ?? '—'}</div>
+            <div className="officer-stat-label">Assigned to you</div>
+          </Link>
+          <Link to="/admin/applications?assigned=unassigned" className="officer-stat-card officer-stat-unassigned">
+            <div className="officer-stat-number">{s?.unassigned ?? '—'}</div>
+            <div className="officer-stat-label">Unassigned</div>
+          </Link>
+          <Link to="/admin/applications?status=submitted" className="officer-stat-card officer-stat-submitted">
+            <div className="officer-stat-number">{s?.submitted ?? '—'}</div>
+            <div className="officer-stat-label">Awaiting review</div>
+          </Link>
+          <Link to="/admin/applications?status=awaiting_information" className="officer-stat-card officer-stat-waiting">
+            <div className="officer-stat-number">{s?.awaiting_information ?? '—'}</div>
+            <div className="officer-stat-label">Awaiting info</div>
+          </Link>
+        </div>
+      </section>
+
+      <section className="form-section">
+        <div className="form-section-title">
+          <span>Assigned to you</span>
+          <Link to="/admin/applications?assigned=mine" className="form-section-title-link">View all</Link>
+        </div>
+
+        {casesLoading ? (
+          <div className="spinner">Loading...</div>
+        ) : cases.length === 0 ? (
+          <div className="queue-empty">
+            <div className="queue-empty-title">No cases assigned to you</div>
+            <p className="queue-empty-hint">
+              <Link to="/admin/applications?assigned=unassigned">Pick up an unassigned case</Link>
+            </p>
+          </div>
+        ) : (
+          <div className="queue-table-wrap">
+            <table className="queue-table">
+              <thead>
+                <tr>
+                  <th>Ref</th>
+                  <th>Type</th>
+                  <th>Premises</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cases.map((app) => (
+                  <tr
+                    key={app.id}
+                    className="queue-table-row"
+                    onClick={() => { window.location.href = `/admin/applications/${app.id}`; }}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/admin/applications/${app.id}`; }}
+                    role="link"
+                    aria-label={`Application ${formatRefId(app.tenant_slug, app.ref_number)}`}
+                  >
+                    <td className="queue-col-ref">
+                      <Link
+                        to={`/admin/applications/${app.id}`}
+                        className="queue-ref-link"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {formatRefId(app.tenant_slug, app.ref_number)}
+                      </Link>
+                    </td>
+                    <td className="queue-col-type">{app.application_type_name ?? '—'}</td>
+                    <td className="queue-col-premises">
+                      <div className="queue-premises-name">{app.premises_name || '—'}</div>
+                      {app.premises_postcode && (
+                        <div className="queue-premises-postcode">{app.premises_postcode}</div>
+                      )}
+                    </td>
+                    <td className="queue-col-status"><StatusBadge status={app.status} /></td>
+                    <td className="queue-col-date">{formatShortDate(app.updated_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
   );
 }
 

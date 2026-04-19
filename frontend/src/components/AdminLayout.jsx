@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { buildTenantAdminNav } from '../lib/navigation.js';
 import NotificationBell from './NotificationBell.jsx';
 import AdminProfileModal from './AdminProfileModal.jsx';
@@ -8,6 +8,7 @@ export default function AdminLayout({ children, session, onSignOut, onSessionRef
   const navigate = useNavigate();
   const navItems = buildTenantAdminNav(session);
   const [profileOpen, setProfileOpen] = useState(false);
+  const location = useLocation();
 
   async function handleLogout() {
     await onSignOut();
@@ -22,6 +23,11 @@ export default function AdminLayout({ children, session, onSignOut, onSessionRef
         </div>
         <nav className="admin-nav" aria-label="Admin navigation">
           {navItems.map((item) => {
+            if (item.type === 'section') {
+              return (
+                <div key={`section-${item.label}`} className="admin-nav-section-label">{item.label}</div>
+              );
+            }
             if (item.href) {
               return (
                 <a key={item.label} href={item.href} className="admin-nav-item">
@@ -29,14 +35,18 @@ export default function AdminLayout({ children, session, onSignOut, onSessionRef
                 </a>
               );
             }
+            const currentHref = location.pathname + location.search;
+            const isActive = item.to.includes('?')
+              ? currentHref === item.to
+              : location.pathname === item.to;
             return (
-              <NavLink
-                key={item.label}
+              <Link
+                key={item.to}
                 to={item.to}
-                className={({ isActive }) => `admin-nav-item${isActive ? ' active' : ''}`}
+                className={`admin-nav-item${isActive ? ' active' : ''}`}
               >
                 {item.label}
-              </NavLink>
+              </Link>
             );
           })}
         </nav>

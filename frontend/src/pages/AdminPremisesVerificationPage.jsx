@@ -21,6 +21,24 @@ const VERIFICATION_STATE_LABELS = {
 // ---------------------------------------------------------------------------
 // List page
 // ---------------------------------------------------------------------------
+const VERIFICATION_BADGE = {
+  pending_verification:      { label: 'Awaiting review',  cls: 'badge-submitted' },
+  more_information_required: { label: 'Info required',    cls: 'badge-awaiting' },
+  verified:                  { label: 'Verified',         cls: 'badge-approved' },
+  verification_refused:      { label: 'Refused',          cls: 'badge-refused' },
+  unverified:                { label: 'Not submitted',    cls: 'badge-draft' },
+};
+
+function VerificationBadge({ state }) {
+  const meta = VERIFICATION_BADGE[state] ?? { label: state?.replace(/_/g, ' ') ?? 'Unknown', cls: 'badge-draft' };
+  return <span className={`status-badge ${meta.cls}`}>{meta.label}</span>;
+}
+
+function formatShortDate(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
 export function AdminPremisesVerificationListPage() {
   const { session, logout, refresh } = useStaffAuth();
   const [items, setItems] = useState([]);
@@ -29,11 +47,13 @@ export function AdminPremisesVerificationListPage() {
   const [stateFilter, setStateFilter] = useState('pending_verification');
 
   useEffect(() => {
+    let active = true;
     setLoading(true);
     api.listAdminPremisesVerifications({ state: stateFilter })
-      .then((data) => setItems(data.premises_verifications ?? []))
-      .catch((err) => setError(err.message || 'Could not load verification requests.'))
-      .finally(() => setLoading(false));
+      .then((data) => { if (active) setItems(data.premises_verifications ?? []); })
+      .catch((err) => { if (active) setError(err.message || 'Could not load verification requests.'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [stateFilter]);
 
   return (
@@ -42,69 +62,89 @@ export function AdminPremisesVerificationListPage() {
       onSignOut={logout}
       onSessionRefresh={refresh}
       breadcrumbs={[
-        { to: '/admin/dashboard', label: 'Council admin' },
+        { to: '/admin/dashboard', label: 'Dashboard' },
         { label: 'Premises verifications' },
       ]}
     >
       <section className="form-section">
-        <div className="form-section-title">Premises verifications</div>
-        <h1 className="page-title">Premises verification queue</h1>
+        <h1 className="page-title">Premises verifications</h1>
         <p className="page-subtitle">
-          Review applicants' claims to their premises before they can submit licence applications.
+          Review applicants&apos; claims to their premises before they can submit licence applications.
         </p>
       </section>
 
-      <section className="form-section">
-        <div className="form-group" style={{ maxWidth: 280 }}>
-          <label htmlFor="state_filter">Filter by state</label>
+      <div className="queue-toolbar">
+        <div className="queue-filters">
           <select
-            id="state_filter"
+            className="queue-filter-select"
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
+            aria-label="Filter by state"
           >
             <option value="pending_verification">Awaiting review</option>
             <option value="more_information_required">More info required</option>
             <option value="verified">Verified</option>
             <option value="verification_refused">Refused</option>
-            <option value="all">All</option>
+            <option value="all">All states</option>
           </select>
         </div>
-      </section>
+      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
         <div className="spinner">Loading...</div>
       ) : items.length === 0 ? (
-        <section className="form-section">
-          <p className="empty-state">No premises verifications match this filter.</p>
-        </section>
+        <div className="queue-empty">
+          <div className="queue-empty-title">No premises verifications match this filter</div>
+        </div>
       ) : (
-        <section className="form-section">
-          <div className="application-list">
-            {items.map((row) => (
-              <Link
-                key={row.id}
-                to={`/admin/premises-verifications/${row.id}`}
-                className="application-row"
-              >
-                <div className="application-row-main">
-                  <div className="application-row-title">{row.premises_name}</div>
-                  <div className="application-row-meta">
-                    {[row.address_line_1, row.town_or_city, row.postcode].filter(Boolean).join(' · ')}
-                  </div>
-                  <div className="application-row-meta">
-                    Applicant: {row.applicant_name || row.applicant_email}
-                    {row.last_submitted_at && ` · Submitted ${formatDate(row.last_submitted_at)}`}
-                  </div>
-                </div>
-                <span className={`status-tag status-verification-${(row.verification_state ?? '').replace(/_/g, '-')}`}>
-                  {VERIFICATION_STATE_LABELS[row.verification_state] ?? row.verification_state}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <div className="queue-table-wrap">
+          <table className="queue-table">
+            <thead>
+              <tr>
+                <th>Premises</th>
+                <th>Address</th>
+                <th>Applicant</th>
+                <th>Status</th>
+                <th>Submitted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((row) => (
+                <tr
+                  key={row.id}
+                  className="queue-table-row"
+                  onClick={() => { window.location.href = `/admin/premises-verifications/${row.id}`; }}
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = `/admin/premises-verifications/${row.id}`; }}
+                  role="link"
+                  aria-label={`Premises verification: ${row.premises_name}`}
+                >
+                  <td className="queue-col-premises">
+                    <Link
+                      to={`/admin/premises-verifications/${row.id}`}
+                      className="queue-ref-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {row.premises_name || '—'}
+                    </Link>
+                  </td>
+                  <td className="queue-col-type">
+                    {[row.address_line_1, row.town_or_city, row.postcode].filter(Boolean).join(', ') || '—'}
+                  </td>
+                  <td className="queue-col-assigned">
+                    {row.applicant_name || row.applicant_email || '—'}
+                  </td>
+                  <td className="queue-col-status">
+                    <VerificationBadge state={row.verification_state} />
+                  </td>
+                  <td className="queue-col-date">{formatShortDate(row.last_submitted_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </AdminLayout>
   );

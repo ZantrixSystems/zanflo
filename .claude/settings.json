@@ -5,7 +5,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git commit *)",
       "Bash(git pull *)",
-      "Bash(node scripts/reset-dev-db.js --confirm-reset)"
+      "Bash(node scripts/reset-dev-db.js --confirm-reset)",
+      "Bash(node scripts/seed-dev-data.js)"
     ]
   }
 }

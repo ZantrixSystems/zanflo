@@ -73,6 +73,7 @@ export async function createPremisesFixture({
   townOrCity = 'Test Town',
   postcode = 'TE1 1ST',
   premisesDescription = null,
+  verificationState = 'unverified',
 } = {}) {
   const pool = createTestPool();
   const client = await pool.connect();
@@ -87,9 +88,10 @@ export async function createPremisesFixture({
         address_line_2,
         town_or_city,
         postcode,
-        premises_description
+        premises_description,
+        verification_state
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `, [
       tenantId,
@@ -100,7 +102,56 @@ export async function createPremisesFixture({
       townOrCity,
       postcode,
       premisesDescription,
+      verificationState,
     ]);
+
+    return result.rows[0];
+  } finally {
+    client.release();
+    await pool.end();
+  }
+}
+
+export async function createApplicationTypeVersionFixture({
+  tenantId,
+  applicationTypeSlug = 'premises_licence',
+  publicationStatus = 'published',
+  versionNumber = 1,
+  reviewMode = 'single_officer',
+} = {}) {
+  const pool = createTestPool();
+  const client = await pool.connect();
+
+  try {
+    const typeRows = await client.query(
+      `SELECT id FROM application_types WHERE slug = $1 AND is_active = true LIMIT 1`,
+      [applicationTypeSlug],
+    );
+    if (typeRows.rows.length === 0) throw new Error(`application_type slug not found: ${applicationTypeSlug}`);
+    const applicationTypeId = typeRows.rows[0].id;
+
+    // Ensure tenant_enabled_application_types exists
+    await client.query(`
+      INSERT INTO tenant_enabled_application_types (tenant_id, application_type_id)
+      VALUES ($1, $2)
+      ON CONFLICT (tenant_id, application_type_id) DO NOTHING
+    `, [tenantId, applicationTypeId]);
+
+    const result = await client.query(`
+      INSERT INTO application_type_versions (
+        tenant_id, application_type_id, version_number,
+        publication_status, published_at, review_mode
+      )
+      VALUES ($1, $2, $3, $4,
+        CASE WHEN $4 = 'published' THEN NOW() ELSE NULL END,
+        $5
+      )
+      ON CONFLICT (tenant_id, application_type_id, version_number)
+      DO UPDATE SET publication_status = EXCLUDED.publication_status,
+                    review_mode        = EXCLUDED.review_mode,
+                    published_at       = EXCLUDED.published_at
+      RETURNING *
+    `, [tenantId, applicationTypeId, versionNumber, publicationStatus, reviewMode]);
 
     return result.rows[0];
   } finally {

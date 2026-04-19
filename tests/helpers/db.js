@@ -84,7 +84,21 @@ export async function resetTestData() {
     `);
 
     await client.query(`
+      DELETE FROM premises_verification_events
+      WHERE tenant_id IN (
+        SELECT id FROM tenants WHERE slug LIKE 'test-%'
+      )
+    `);
+
+    await client.query(`
       DELETE FROM premises
+      WHERE tenant_id IN (
+        SELECT id FROM tenants WHERE slug LIKE 'test-%'
+      )
+    `);
+
+    await client.query(`
+      DELETE FROM application_type_versions
       WHERE tenant_id IN (
         SELECT id FROM tenants WHERE slug LIKE 'test-%'
       )

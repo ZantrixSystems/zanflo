@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Layout from '../components/Layout.jsx';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function emptyForm() {
   return {
@@ -110,16 +109,13 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
         { label: 'Settings' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <section className="form-section">
         <div className="form-section-title">Settings</div>
@@ -343,6 +339,6 @@ export default function AdminSettingsPage() {
           </div>
         </form>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }

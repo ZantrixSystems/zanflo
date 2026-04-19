@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import Layout from '../components/Layout.jsx';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -129,13 +128,10 @@ export default function TenantAdminDashboardPage() {
   const allDone = checklistTotal > 0 && checklistDone === checklistTotal;
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[{ label: councilName ? `${councilName} admin` : 'Admin' }]}
-      navItems={buildTenantAdminNav(session)}
     >
       {loadError && <div className="alert alert-error">{loadError}</div>}
 
@@ -318,6 +314,6 @@ export default function TenantAdminDashboardPage() {
           </div>
         </section>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }

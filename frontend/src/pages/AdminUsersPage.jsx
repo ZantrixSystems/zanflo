@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
-import Layout from '../components/Layout.jsx';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 const EMPTY_FORM = {
   email: '',
@@ -67,16 +66,13 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Council admin' },
         { label: 'Users' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <section className="form-section">
         <div className="form-section-title">Tenant administration</div>
@@ -143,6 +139,6 @@ export default function AdminUsersPage() {
           </button>
         </form>
       </section>
-    </Layout>
+    </AdminLayout>
   );
 }

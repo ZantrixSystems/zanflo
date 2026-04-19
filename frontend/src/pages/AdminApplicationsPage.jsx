@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import Layout from '../components/Layout.jsx';
+import { Link, useSearchParams } from 'react-router-dom';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 const STATUS_META = {
   submitted:            { label: 'Submitted',            cls: 'badge-submitted' },
@@ -32,13 +31,14 @@ function formatShortDate(value) {
 
 export default function AdminApplicationsPage() {
   const { session, logout } = useStaffAuth();
+  const [urlParams] = useSearchParams();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMine, setViewMine] = useState(true);
-  const [status, setStatus] = useState('');
-  const [typeSlug, setTypeSlug] = useState('');
-  const [sort, setSort] = useState('updated');
+  const [viewMine, setViewMine] = useState(urlParams.get('assigned') === 'mine');
+  const [status, setStatus] = useState(urlParams.get('status') || '');
+  const [typeSlug, setTypeSlug] = useState(urlParams.get('type') || '');
+  const [sort, setSort] = useState(urlParams.get('sort') || 'updated');
   const [typeOptions, setTypeOptions] = useState([]);
 
   useEffect(() => {
@@ -66,16 +66,13 @@ export default function AdminApplicationsPage() {
   }, [status, viewMine, typeSlug, sort]);
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
         { label: 'Applications' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <section className="form-section">
         <h1 className="page-title">Applications</h1>
@@ -222,6 +219,6 @@ export default function AdminApplicationsPage() {
           </table>
         </div>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }

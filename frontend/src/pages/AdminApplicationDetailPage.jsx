@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import Layout from '../components/Layout.jsx';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 const STATUS_META = {
   submitted:            { label: 'Submitted',            cls: 'badge-submitted' },
@@ -135,17 +134,14 @@ export default function AdminApplicationDetailPage() {
   }
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
         { to: '/admin/applications', label: 'Applications' },
         { label: application?.premises_name || 'Case' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <Link to="/admin/applications" className="back-link">Back to applications</Link>
 
@@ -346,6 +342,6 @@ export default function AdminApplicationDetailPage() {
           </div>
         </>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }

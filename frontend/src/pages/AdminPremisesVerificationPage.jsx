@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout.jsx';
+import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-import { buildTenantAdminNav } from '../lib/navigation.js';
 
 function formatDate(value) {
   if (!value) return 'Not recorded';
@@ -37,16 +36,13 @@ export function AdminPremisesVerificationListPage() {
   }, [stateFilter]);
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Council admin' },
         { label: 'Premises verifications' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <section className="form-section">
         <div className="form-section-title">Premises verifications</div>
@@ -108,7 +104,7 @@ export function AdminPremisesVerificationListPage() {
           </div>
         </section>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }
 
@@ -165,17 +161,14 @@ export function AdminPremisesVerificationDetailPage() {
   const isPending = premises?.verification_state === 'pending_verification';
 
   return (
-    <Layout
+    <AdminLayout
       session={session}
       onSignOut={logout}
-      brandTarget="/admin/dashboard"
-      signOutTarget="/admin"
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Council admin' },
         { to: '/admin/premises-verifications', label: 'Premises verifications' },
         { label: 'Premises detail' },
       ]}
-      navItems={buildTenantAdminNav(session)}
     >
       <Link to="/admin/premises-verifications" className="back-link">
         Back to verification queue
@@ -308,6 +301,6 @@ export function AdminPremisesVerificationDetailPage() {
           </section>
         </>
       )}
-    </Layout>
+    </AdminLayout>
   );
 }

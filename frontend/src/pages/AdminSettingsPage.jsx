@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
@@ -45,17 +45,13 @@ function emptyForm() {
 
 export default function AdminSettingsPage() {
   const { session, logout } = useStaffAuth();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState(emptyForm());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [showNextSteps, setShowNextSteps] = useState(false);
-
-  const isFirstRunSetup = searchParams.get('setup') === '1';
+  const [showSso, setShowSso] = useState(false);
 
   useEffect(() => {
     api.getAdminSettings()
@@ -105,14 +101,7 @@ export default function AdminSettingsPage() {
           clear_oidc_client_secret: false,
         },
       }));
-      setNotice(isFirstRunSetup ? 'Tenant setup saved. Taking you to your admin dashboard...' : 'Tenant setup saved.');
-      setShowNextSteps(true);
-
-      if (isFirstRunSetup) {
-        window.setTimeout(() => {
-          navigate('/admin/dashboard', { replace: true });
-        }, 1200);
-      }
+      setNotice('Settings saved.');
     } catch (err) {
       setError(err.message || 'Could not update tenant settings.');
     } finally {
@@ -127,22 +116,24 @@ export default function AdminSettingsPage() {
       brandTarget="/admin/dashboard"
       signOutTarget="/admin"
       breadcrumbs={[
-        { to: '/admin/dashboard', label: 'Council admin' },
+        { to: '/admin/dashboard', label: 'Dashboard' },
         { label: 'Settings' },
       ]}
       navItems={buildTenantAdminNav(session)}
     >
       <section className="form-section">
-        <div className="form-section-title">Tenant setup</div>
-        <h1 className="page-title">Council setup workspace</h1>
+        <div className="form-section-title">Settings</div>
+        <h1 className="page-title">
+          {settings?.organisation?.council_display_name || settings?.organisation?.council_name || 'Council settings'}
+        </h1>
         <p className="page-subtitle">
-          This is the first-run area for your council. Save your organisation details, public homepage content, and identity settings here.
+          Manage your organisation details, public homepage content, and advanced identity settings.
         </p>
         <div className="platform-hero-actions" style={{ marginTop: -16 }}>
-          <Link className="btn btn-secondary" to="/admin/dashboard">Back to admin dashboard</Link>
+          <Link className="btn btn-secondary" to="/admin/dashboard">Back to dashboard</Link>
           {settings?.tenant?.subdomain && (
-            <a className="btn btn-secondary" href={`https://${settings.tenant.subdomain}.zanflo.com`}>
-              Open public council site
+            <a className="btn btn-secondary" href={`https://${settings.tenant.subdomain}.zanflo.com`} target="_blank" rel="noreferrer">
+              View public site
             </a>
           )}
         </div>
@@ -150,20 +141,6 @@ export default function AdminSettingsPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
       {notice && <div className="alert alert-success">{notice}</div>}
-      {(showNextSteps || isFirstRunSetup) && !loading && (
-        <section className="form-section soft-panel">
-          <div className="form-section-title">What next</div>
-          <p className="platform-body-copy">
-            Your council setup has been saved. You can now move into the main council admin area or check the public council site applicants will use.
-          </p>
-          <div className="platform-hero-actions" style={{ marginTop: 16 }}>
-            <Link className="btn btn-primary" to="/admin/dashboard">Go to admin dashboard</Link>
-            <a className="btn btn-secondary" href={`https://${settings?.tenant?.subdomain}.zanflo.com`}>
-              Open public council site
-            </a>
-          </div>
-        </section>
-      )}
 
       {loading ? (
         <div className="spinner">Loading...</div>
@@ -225,100 +202,118 @@ export default function AdminSettingsPage() {
           </section>
 
           <section className="form-section">
-            <div className="form-section-title">Identity and SSO settings</div>
-            <div className="alert alert-warning">
-              Live SSO sign-in is not enabled yet in this build. These settings are stored for tenant setup and later end-to-end integration.
+            <div className="form-section-title">Identity and SSO</div>
+            <div className="sso-toggle-row">
+              <div>
+                <div className="sso-toggle-label">Single Sign-On (SSO)</div>
+                <div className="sso-toggle-desc">Connect your council's identity provider via SAML or OIDC. This is an advanced setting — most councils skip this on first setup.</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowSso((v) => !v)}
+              >
+                {showSso ? 'Hide SSO settings' : 'Configure SSO'}
+              </button>
             </div>
 
-            <label className="checkbox-row" htmlFor="saml_enabled">
-              <input id="saml_enabled" type="checkbox" checked={form.sso.saml_enabled} onChange={(event) => setSectionField('sso', 'saml_enabled', event.target.checked)} />
-              <span>Enable SAML configuration for this tenant</span>
-            </label>
+            {showSso && (
+              <>
+                <div className="alert alert-warning" style={{ marginTop: 20 }}>
+                  Live SSO sign-in is not enabled yet in this build. These settings are stored for setup and later integration.
+                </div>
 
-            <div className="form-group">
-              <label htmlFor="saml_metadata_xml">SAML metadata XML</label>
-              <textarea id="saml_metadata_xml" value={form.sso.saml_metadata_xml} onChange={(event) => setSectionField('sso', 'saml_metadata_xml', event.target.value)} />
-            </div>
-            <div className="platform-two-column">
-              <div className="form-group">
-                <label htmlFor="saml_entity_id">SAML entity ID</label>
-                <input id="saml_entity_id" value={form.sso.saml_entity_id} onChange={(event) => setSectionField('sso', 'saml_entity_id', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="saml_login_url">SAML login URL</label>
-                <input id="saml_login_url" value={form.sso.saml_login_url} onChange={(event) => setSectionField('sso', 'saml_login_url', event.target.value)} />
-              </div>
-            </div>
-            <div className="form-group">
-              <label htmlFor="saml_certificate">SAML certificate</label>
-              <textarea id="saml_certificate" value={form.sso.saml_certificate} onChange={(event) => setSectionField('sso', 'saml_certificate', event.target.value)} />
-            </div>
+                <label className="checkbox-row" htmlFor="saml_enabled">
+                  <input id="saml_enabled" type="checkbox" checked={form.sso.saml_enabled} onChange={(event) => setSectionField('sso', 'saml_enabled', event.target.checked)} />
+                  <span>Enable SAML configuration for this tenant</span>
+                </label>
 
-            <label className="checkbox-row" htmlFor="oidc_enabled">
-              <input id="oidc_enabled" type="checkbox" checked={form.sso.oidc_enabled} onChange={(event) => setSectionField('sso', 'oidc_enabled', event.target.checked)} />
-              <span>Enable OAuth / OpenID Connect configuration for this tenant</span>
-            </label>
+                <div className="form-group">
+                  <label htmlFor="saml_metadata_xml">SAML metadata XML</label>
+                  <textarea id="saml_metadata_xml" value={form.sso.saml_metadata_xml} onChange={(event) => setSectionField('sso', 'saml_metadata_xml', event.target.value)} />
+                </div>
+                <div className="platform-two-column">
+                  <div className="form-group">
+                    <label htmlFor="saml_entity_id">SAML entity ID</label>
+                    <input id="saml_entity_id" value={form.sso.saml_entity_id} onChange={(event) => setSectionField('sso', 'saml_entity_id', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="saml_login_url">SAML login URL</label>
+                    <input id="saml_login_url" value={form.sso.saml_login_url} onChange={(event) => setSectionField('sso', 'saml_login_url', event.target.value)} />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="saml_certificate">SAML certificate</label>
+                  <textarea id="saml_certificate" value={form.sso.saml_certificate} onChange={(event) => setSectionField('sso', 'saml_certificate', event.target.value)} />
+                </div>
 
-            <div className="platform-two-column">
-              <div className="form-group">
-                <label htmlFor="oidc_client_id">Client ID</label>
-                <input id="oidc_client_id" value={form.sso.oidc_client_id} onChange={(event) => setSectionField('sso', 'oidc_client_id', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_client_secret_id">Client secret ID</label>
-                <input id="oidc_client_secret_id" value={form.sso.oidc_client_secret_id} onChange={(event) => setSectionField('sso', 'oidc_client_secret_id', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_directory_id">Tenant or directory ID</label>
-                <input id="oidc_directory_id" value={form.sso.oidc_directory_id} onChange={(event) => setSectionField('sso', 'oidc_directory_id', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_issuer">Issuer</label>
-                <input id="oidc_issuer" value={form.sso.oidc_issuer} onChange={(event) => setSectionField('sso', 'oidc_issuer', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_authorization_endpoint">Authorization endpoint</label>
-                <input id="oidc_authorization_endpoint" value={form.sso.oidc_authorization_endpoint} onChange={(event) => setSectionField('sso', 'oidc_authorization_endpoint', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_token_endpoint">Token endpoint</label>
-                <input id="oidc_token_endpoint" value={form.sso.oidc_token_endpoint} onChange={(event) => setSectionField('sso', 'oidc_token_endpoint', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_userinfo_endpoint">Userinfo endpoint</label>
-                <input id="oidc_userinfo_endpoint" value={form.sso.oidc_userinfo_endpoint} onChange={(event) => setSectionField('sso', 'oidc_userinfo_endpoint', event.target.value)} />
-              </div>
-              <div className="form-group">
-                <label htmlFor="oidc_scopes">Scopes</label>
-                <input id="oidc_scopes" value={form.sso.oidc_scopes} onChange={(event) => setSectionField('sso', 'oidc_scopes', event.target.value)} />
-              </div>
-            </div>
+                <label className="checkbox-row" htmlFor="oidc_enabled">
+                  <input id="oidc_enabled" type="checkbox" checked={form.sso.oidc_enabled} onChange={(event) => setSectionField('sso', 'oidc_enabled', event.target.checked)} />
+                  <span>Enable OAuth / OpenID Connect configuration for this tenant</span>
+                </label>
 
-            <div className="form-group">
-              <label htmlFor="oidc_client_secret">Client secret</label>
-              <input id="oidc_client_secret" type="password" value={form.sso.oidc_client_secret} onChange={(event) => setSectionField('sso', 'oidc_client_secret', event.target.value)} autoComplete="new-password" />
-              <span className="form-hint">
-                Saved secrets are masked after save. Current status: {settings?.sso?.has_oidc_client_secret ? `saved (${settings.sso.oidc_client_secret_hint || 'masked'})` : 'not saved'}.
-              </span>
-            </div>
+                <div className="platform-two-column">
+                  <div className="form-group">
+                    <label htmlFor="oidc_client_id">Client ID</label>
+                    <input id="oidc_client_id" value={form.sso.oidc_client_id} onChange={(event) => setSectionField('sso', 'oidc_client_id', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_client_secret_id">Client secret ID</label>
+                    <input id="oidc_client_secret_id" value={form.sso.oidc_client_secret_id} onChange={(event) => setSectionField('sso', 'oidc_client_secret_id', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_directory_id">Tenant or directory ID</label>
+                    <input id="oidc_directory_id" value={form.sso.oidc_directory_id} onChange={(event) => setSectionField('sso', 'oidc_directory_id', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_issuer">Issuer</label>
+                    <input id="oidc_issuer" value={form.sso.oidc_issuer} onChange={(event) => setSectionField('sso', 'oidc_issuer', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_authorization_endpoint">Authorization endpoint</label>
+                    <input id="oidc_authorization_endpoint" value={form.sso.oidc_authorization_endpoint} onChange={(event) => setSectionField('sso', 'oidc_authorization_endpoint', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_token_endpoint">Token endpoint</label>
+                    <input id="oidc_token_endpoint" value={form.sso.oidc_token_endpoint} onChange={(event) => setSectionField('sso', 'oidc_token_endpoint', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_userinfo_endpoint">Userinfo endpoint</label>
+                    <input id="oidc_userinfo_endpoint" value={form.sso.oidc_userinfo_endpoint} onChange={(event) => setSectionField('sso', 'oidc_userinfo_endpoint', event.target.value)} />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="oidc_scopes">Scopes</label>
+                    <input id="oidc_scopes" value={form.sso.oidc_scopes} onChange={(event) => setSectionField('sso', 'oidc_scopes', event.target.value)} />
+                  </div>
+                </div>
 
-            <label className="checkbox-row" htmlFor="clear_oidc_client_secret">
-              <input id="clear_oidc_client_secret" type="checkbox" checked={form.sso.clear_oidc_client_secret} onChange={(event) => setSectionField('sso', 'clear_oidc_client_secret', event.target.checked)} />
-              <span>Clear the stored client secret on next save</span>
-            </label>
+                <div className="form-group">
+                  <label htmlFor="oidc_client_secret">Client secret</label>
+                  <input id="oidc_client_secret" type="password" value={form.sso.oidc_client_secret} onChange={(event) => setSectionField('sso', 'oidc_client_secret', event.target.value)} autoComplete="new-password" />
+                  <span className="form-hint">
+                    Saved secrets are masked after save. Current status: {settings?.sso?.has_oidc_client_secret ? `saved (${settings.sso.oidc_client_secret_hint || 'masked'})` : 'not saved'}.
+                  </span>
+                </div>
 
-            <div className="form-section soft-panel">
-              <div className="form-section-title">Runtime status</div>
-              <p className="platform-body-copy">
-                Redirect URI to register later: <strong>{`https://${settings?.tenant?.subdomain}.zanflo.com/api/auth/sso/callback`}</strong>
-              </p>
-              <p className="platform-body-copy">
-                Logout URI to register later: <strong>{`https://${settings?.tenant?.subdomain}.zanflo.com/`}</strong>
-              </p>
-              <p className="platform-body-copy">
-                Live auth status: <strong>{settings?.sso?.auth_runtime_status || 'configuration_only'}</strong>
-              </p>
-            </div>
+                <label className="checkbox-row" htmlFor="clear_oidc_client_secret">
+                  <input id="clear_oidc_client_secret" type="checkbox" checked={form.sso.clear_oidc_client_secret} onChange={(event) => setSectionField('sso', 'clear_oidc_client_secret', event.target.checked)} />
+                  <span>Clear the stored client secret on next save</span>
+                </label>
+
+                <div className="form-section soft-panel">
+                  <div className="form-section-title">Runtime status</div>
+                  <p className="platform-body-copy">
+                    Redirect URI to register later: <strong>{`https://${settings?.tenant?.subdomain}.zanflo.com/api/auth/sso/callback`}</strong>
+                  </p>
+                  <p className="platform-body-copy">
+                    Logout URI to register later: <strong>{`https://${settings?.tenant?.subdomain}.zanflo.com/`}</strong>
+                  </p>
+                  <p className="platform-body-copy">
+                    Live auth status: <strong>{settings?.sso?.auth_runtime_status || 'configuration_only'}</strong>
+                  </p>
+                </div>
+              </>
+            )}
           </section>
 
           <section className="form-section">

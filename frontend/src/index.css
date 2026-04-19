@@ -1241,6 +1241,32 @@ body { min-height: 100vh; }
 }
 
 /* ============================================================
+   Settings page — SSO toggle
+   ============================================================ */
+
+.sso-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.sso-toggle-label {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.sso-toggle-desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+/* ============================================================
    Dashboard — welcome banner
    ============================================================ */
 

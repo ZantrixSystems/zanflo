@@ -65,7 +65,7 @@ export default function TenantBootstrapExchangePage() {
     api.staffBootstrapExchange({ token })
       .then((data) => {
         if (data.tenant_name) setCouncilName(data.tenant_name);
-        const target = data.session?.role === 'tenant_admin' ? '/admin/settings?setup=1' : '/admin/dashboard';
+        const target = data.session?.role === 'tenant_admin' ? '/admin/dashboard?welcome=1' : '/admin/dashboard';
         navigateTarget.current = target;
         exchangeDone.current = true;
         maybeNavigate();

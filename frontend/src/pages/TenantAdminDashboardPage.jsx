@@ -1,18 +1,96 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
 import { buildTenantAdminNav } from '../lib/navigation.js';
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      type="button"
+      className={`copy-btn${copied ? ' copied' : ''}`}
+      onClick={handleCopy}
+      title="Copy to clipboard"
+    >
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
+
 export default function TenantAdminDashboardPage() {
   const { session, logout } = useStaffAuth();
+  const [searchParams] = useSearchParams();
+  const isWelcome = searchParams.get('welcome') === '1';
+
   const [settings, setSettings] = useState(null);
+  const [onboarding, setOnboarding] = useState(null);
+  const [loadError, setLoadError] = useState('');
+
+  const isTenantAdmin = session.role === 'tenant_admin';
 
   useEffect(() => {
-    if (session.role !== 'tenant_admin') return;
-    api.getAdminSettings().then((data) => setSettings(data.settings)).catch(() => {});
-  }, [session.role]);
+    const settingsPromise = isTenantAdmin
+      ? api.getAdminSettings().then((d) => setSettings(d.settings)).catch(() => {})
+      : Promise.resolve();
+
+    const onboardingPromise = isTenantAdmin
+      ? api.getAdminOnboarding().then(setOnboarding).catch(() => {})
+      : Promise.resolve();
+
+    Promise.all([settingsPromise, onboardingPromise]).catch(() => {
+      setLoadError('Could not load dashboard data.');
+    });
+  }, [isTenantAdmin]);
+
+  const councilName = settings?.organisation?.council_display_name
+    || settings?.organisation?.council_name
+    || session.tenant_slug;
+
+  const subdomain = settings?.tenant?.subdomain;
+
+  function ScoreRing({ score, level }) {
+    const radius = 36;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (score / 100) * circumference;
+    const colorMap = {
+      excellent: '#D4AF37',
+      good: '#386A20',
+      fair: '#92400e',
+      needs_attention: '#BA1A1A',
+    };
+    const color = colorMap[level] ?? '#D4AF37';
+    return (
+      <div className="score-ring-wrapper">
+        <svg className="score-ring-svg" viewBox="0 0 88 88" aria-hidden="true">
+          <circle cx="44" cy="44" r={radius} className="score-ring-track" />
+          <circle
+            cx="44" cy="44" r={radius}
+            className="score-ring-fill"
+            stroke={color}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <div className="score-ring-label">
+          <span className="score-ring-number">{score}</span>
+          <span className="score-ring-unit">/ 100</span>
+        </div>
+      </div>
+    );
+  }
+
+  const checklist = onboarding?.checklist ? Object.values(onboarding.checklist) : null;
+  const checklistTotal = checklist?.length ?? 0;
+  const checklistDone = checklist?.filter((c) => c.complete).length ?? 0;
+  const allDone = checklistTotal > 0 && checklistDone === checklistTotal;
 
   return (
     <Layout
@@ -20,210 +98,200 @@ export default function TenantAdminDashboardPage() {
       onSignOut={logout}
       brandTarget="/admin/dashboard"
       signOutTarget="/admin"
-      breadcrumbs={[
-        { to: '/admin/dashboard', label: 'Council admin' },
-        { label: 'Dashboard' },
-      ]}
+      breadcrumbs={[{ label: councilName ? `${councilName} admin` : 'Admin' }]}
       navItems={buildTenantAdminNav(session)}
     >
-      <section className="form-section">
-        <div className="form-section-title">Tenant staff workspace</div>
-        <h1 className="page-title">Admin dashboard</h1>
-        <p className="page-subtitle">
-          Review applications, manage tenant administration, and keep staff work separate from the public applicant portal.
-        </p>
-      </section>
+      {loadError && <div className="alert alert-error">{loadError}</div>}
 
-      {session.role === 'tenant_admin' && settings?.tenant?.subdomain && (
-        <section className="form-section">
-          <div className="form-section-title">Council URL guide</div>
-          <p className="page-subtitle" style={{ marginBottom: 24 }}>
-            Use these council-specific links during setup and day-to-day support so staff and applicants go to the right place. Platform admin users do not use these links.
-          </p>
-
-          <div className="dashboard-url-list">
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Public homepage</h2>
-                <p>This is your council&apos;s main public website for licensing information and first visits.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Council admin and staff sign-in</h2>
-                <p>This is the shared sign-in page for tenant admins, managers, and officers. After sign-in, each role only sees the areas they are allowed to use.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Staff dashboard</h2>
-                <p>Main landing page after staff sign-in. Use this when guiding users back to their workspace.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/dashboard`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Application queue</h2>
-                <p>For managers and officers to pick up, review, and decide applications. Tenant admins do not process applications directly.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/applications`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Tenant users</h2>
-                <p>For tenant admins to add staff users and set roles such as tenant admin, manager, and officer.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/users`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Tenant settings</h2>
-                <p>For tenant admins to complete organisation setup, branding, and saved SSO configuration.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/settings`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Application setup</h2>
-                <p>For tenant admins to manage the current applicant journey foundation and future council-owned application configuration.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/application-setup`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Audit log</h2>
-                <p>For tenant admins to review recent tenant-scoped activity and support operational checks.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/admin/audit`}</strong>
-              </div>
-            </article>
-
-            <article className="dashboard-url-row">
-              <div className="dashboard-url-copy">
-                <h2>Applicant area</h2>
-                <p>This is where premises applicants create an account, start an application, and track progress.</p>
-              </div>
-              <div className="dashboard-url-meta">
-                <strong>{`${settings.tenant.subdomain}.zanflo.com/apply`}</strong>
-              </div>
-            </article>
+      {/* Welcome banner — shown on first login after signup */}
+      {isWelcome && (
+        <section className="welcome-banner">
+          <div className="welcome-banner-content">
+            <div className="welcome-banner-text">
+              <h1 className="welcome-banner-title">
+                Welcome to {councilName || 'your council'}&apos;s admin panel
+              </h1>
+              <p className="welcome-banner-subtitle">
+                Your workspace is ready. Complete the steps below to go live.
+              </p>
+            </div>
           </div>
         </section>
       )}
 
-      {session.role === 'tenant_admin' && settings && (
-        <section className="dashboard-action-list">
-          <article className="dashboard-action-row">
-            <div className="dashboard-action-copy">
-              <h2>Organisation settings</h2>
-              <p>{settings.organisation.council_display_name || settings.organisation.council_name}</p>
-            </div>
-            <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to="/admin/settings">Open setup</Link>
-            </div>
-          </article>
-          <article className="dashboard-action-row">
-            <div className="dashboard-action-copy">
-              <h2>Branding and homepage</h2>
-              <p>{settings.branding.welcome_text || 'Add welcome text and public homepage details for applicants.'}</p>
-            </div>
-            <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to="/admin/settings">Edit</Link>
-            </div>
-          </article>
-          <article className="dashboard-action-row">
-            <div className="dashboard-action-copy">
-              <h2>Application setup</h2>
-              <p>Own the council-side setup for applicant guidance and the bounded field metadata foundation.</p>
-            </div>
-            <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to="/admin/application-setup">Open</Link>
-            </div>
-          </article>
-          <article className="dashboard-action-row">
-            <div className="dashboard-action-copy">
-              <h2>Identity and SSO</h2>
-              <p>{settings.sso.auth_runtime_status === 'configuration_only' ? 'Configuration can be saved now. Live SSO sign-in is not active yet.' : settings.sso.auth_runtime_status}</p>
-            </div>
-            <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to="/admin/settings">Configure</Link>
-            </div>
-          </article>
+      {!isWelcome && (
+        <section className="form-section">
+          <h1 className="page-title">{councilName ? `${councilName}` : 'Admin dashboard'}</h1>
+          <p className="page-subtitle">
+            {['officer', 'manager'].includes(session.role)
+              ? 'Review submitted applications and manage your case queue.'
+              : 'Manage your council workspace, team, and settings.'}
+          </p>
         </section>
       )}
 
-      <section className="dashboard-action-list">
-        {['officer', 'manager'].includes(session.role) && (
+      {/* Trial countdown */}
+      {onboarding?.trial && onboarding.trial.days_remaining <= 30 && (
+        <div className={`trial-banner${onboarding.trial.is_expired ? ' trial-expired' : ''}`}>
+          <span className="trial-banner-icon" aria-hidden="true" />
+          <span className="trial-banner-text">
+            {onboarding.trial.is_expired
+              ? 'Your trial has expired. Contact support to activate your council workspace.'
+              : `Trial — ${onboarding.trial.days_remaining} day${onboarding.trial.days_remaining === 1 ? '' : 's'} remaining`}
+          </span>
+        </div>
+      )}
+
+      {/* Setup checklist — tenant_admin only, until all done */}
+      {isTenantAdmin && checklist && !allDone && (
+        <section className="onboarding-card">
+          <div className="onboarding-card-header">
+            <div>
+              <div className="onboarding-card-title">Get your council workspace ready</div>
+              <div className="onboarding-card-progress">{checklistDone} of {checklistTotal} steps complete</div>
+            </div>
+            <div className="onboarding-progress-bar-track">
+              <div
+                className="onboarding-progress-bar-fill"
+                style={{ width: `${(checklistDone / checklistTotal) * 100}%` }}
+              />
+            </div>
+          </div>
+          <ul className="onboarding-checklist">
+            {checklist.map((item) => (
+              <li key={item.label} className={`onboarding-checklist-item${item.complete ? ' is-done' : ''}`}>
+                <span className="onboarding-check-icon" aria-hidden="true">
+                  {item.complete ? '✓' : ''}
+                </span>
+                <div className="onboarding-checklist-body">
+                  <Link to={item.href} className="onboarding-checklist-label">
+                    {item.label}
+                    {item.badge && <span className="onboarding-badge">{item.badge}</span>}
+                  </Link>
+                </div>
+                {!item.complete && (
+                  <Link to={item.href} className="btn btn-secondary onboarding-checklist-action">
+                    Start
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/* Security score — tenant_admin only */}
+      {isTenantAdmin && onboarding?.security_score && (
+        <section className="security-score-card">
+          <div className="security-score-left">
+            <ScoreRing score={onboarding.security_score.score} level={onboarding.security_score.level} />
+          </div>
+          <div className="security-score-right">
+            <div className="security-score-title">Security score</div>
+            <div className={`security-score-level level-${onboarding.security_score.level}`}>
+              {onboarding.security_score.level === 'excellent' && 'Excellent'}
+              {onboarding.security_score.level === 'good' && 'Good'}
+              {onboarding.security_score.level === 'fair' && 'Fair'}
+              {onboarding.security_score.level === 'needs_attention' && 'Needs attention'}
+            </div>
+            {onboarding.security_score.recommendations.length > 0 && (
+              <ul className="security-recs">
+                {onboarding.security_score.recommendations.map((rec) => (
+                  <li key={rec.id} className={`security-rec priority-${rec.priority}`}>
+                    <Link to={rec.href} className="security-rec-link">
+                      {rec.label}
+                      <span className="security-rec-points">+{rec.points} pts</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Quick actions for officers/managers */}
+      {['officer', 'manager'].includes(session.role) && (
+        <section className="dashboard-action-list">
           <article className="dashboard-action-row">
             <div className="dashboard-action-copy">
               <h2>Application queue</h2>
               <p>Pick up submitted applications, review current cases, and complete decisions.</p>
             </div>
             <div className="dashboard-action-controls">
-              <Link className="btn btn-primary" to="/admin/applications">Open</Link>
+              <Link className="btn btn-primary" to="/admin/applications">Open queue</Link>
             </div>
           </article>
-        )}
+        </section>
+      )}
 
-        {session.role === 'tenant_admin' && (
+      {/* Tenant admin actions */}
+      {isTenantAdmin && settings && (
+        <section className="dashboard-action-list">
           <article className="dashboard-action-row">
             <div className="dashboard-action-copy">
-              <h2>Tenant users</h2>
-              <p>Manage tenant staff access and role assignment within this council only.</p>
+              <h2>Your team</h2>
+              <p>
+                {onboarding?.stats?.staff_count
+                  ? `${onboarding.stats.staff_count} officer${onboarding.stats.staff_count === 1 ? '' : 's'} and managers`
+                  : 'No officers or managers added yet.'}
+              </p>
             </div>
             <div className="dashboard-action-controls">
-              <Link className="btn btn-secondary" to="/admin/users">Manage</Link>
+              <Link className="btn btn-secondary" to="/admin/users">Manage team</Link>
             </div>
           </article>
-        )}
-
-        {session.role === 'tenant_admin' && (
           <article className="dashboard-action-row">
             <div className="dashboard-action-copy">
-              <h2>Settings and audit</h2>
-              <p>Keep tenant contact details current and review recent tenant-scoped activity.</p>
+              <h2>Council settings</h2>
+              <p>Organisation details, public homepage, and SSO configuration.</p>
             </div>
             <div className="dashboard-action-controls dashboard-action-controls-double">
               <Link className="btn btn-secondary" to="/admin/settings">Settings</Link>
-              <Link className="btn btn-secondary" to="/admin/audit">Audit</Link>
+              <Link className="btn btn-secondary" to="/admin/audit">Audit log</Link>
             </div>
           </article>
-        )}
-      </section>
+        </section>
+      )}
 
-      <section className="form-section">
-        <div className="form-section-title">Current access</div>
-        <p className="platform-body-copy">
-          Signed in as <strong>{session.full_name || session.email}</strong>.
-        </p>
-        <p className="platform-body-copy">
-          Tenant role: <strong>{session.role}</strong>
-        </p>
-      </section>
+      {/* Council URLs — tenant admin only */}
+      {isTenantAdmin && subdomain && (
+        <section className="form-section">
+          <div className="form-section-title">Your council URLs</div>
+          <p className="page-subtitle" style={{ marginBottom: 20 }}>
+            Share these with your team. Each link is specific to your council workspace.
+          </p>
+          <div className="url-table">
+            {[
+              { label: 'Public homepage', desc: 'Where applicants start their licensing journey', path: '' },
+              { label: 'Staff sign-in', desc: 'For officers, managers, and admins', path: '/admin' },
+              { label: 'Application queue', desc: 'Officers and managers process applications here', path: '/admin/applications' },
+              { label: 'Applicant area', desc: 'Where applicants register and submit applications', path: '/apply' },
+            ].map(({ label, desc, path }) => {
+              const url = `${subdomain}.zanflo.com${path}`;
+              return (
+                <div key={path} className="url-table-row">
+                  <div className="url-table-meta">
+                    <div className="url-table-label">{label}</div>
+                    <div className="url-table-desc">{desc}</div>
+                  </div>
+                  <div className="url-table-actions">
+                    <a
+                      className="url-table-link"
+                      href={`https://${url}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {url}
+                    </a>
+                    <CopyButton text={`https://${url}`} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
     </Layout>
   );
 }

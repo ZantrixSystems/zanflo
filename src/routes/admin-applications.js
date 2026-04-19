@@ -360,6 +360,43 @@ async function recordDecision(request, env, applicationId) {
   return json(await serialiseApplicationForResponse(rows[0], env));
 }
 
+async function deleteApplication(request, env, applicationId) {
+  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  if (!session) return error('Not authorised', 403);
+
+  const sql = getDb(env);
+  const application = await loadApplicationForTenant(sql, session.tenant_id, applicationId);
+  if (!application) return error('Not found', 404);
+
+  // Officers can delete any non-decided case; managers can delete anything
+  const decided = ['approved', 'refused'].includes(application.status);
+  if (decided && session.role !== 'manager') {
+    return error('Only a manager can delete an approved or refused application', 403);
+  }
+
+  await sql`
+    DELETE FROM applications
+    WHERE id = ${applicationId}
+      AND tenant_id = ${session.tenant_id}
+  `;
+
+  await writeAuditLog(sql, {
+    tenantId: session.tenant_id,
+    actorType: session.role,
+    actorId: session.user_id,
+    action: 'application.deleted',
+    recordType: 'application',
+    recordId: applicationId,
+    meta: {
+      ref_number: application.ref_number,
+      status: application.status,
+      premises_name: application.premises_name,
+    },
+  });
+
+  return json({ deleted: true });
+}
+
 async function getQueueStats(request, env) {
   const session = await requireTenantStaff(request, env, 'officer', 'manager');
   if (!session) return error('Not authorised', 403);
@@ -420,6 +457,10 @@ export async function handleAdminApplicationRoutes(request, env) {
   const decisionMatch = url.pathname.match(/^\/api\/admin\/applications\/([^/]+)\/decision$/);
   if (decisionMatch && method === 'POST') {
     return recordDecision(request, env, decisionMatch[1]);
+  }
+
+  if (detailMatch && method === 'DELETE') {
+    return deleteApplication(request, env, detailMatch[1]);
   }
 
   return null;

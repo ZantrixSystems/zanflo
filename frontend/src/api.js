@@ -118,6 +118,7 @@ export const api = {
   assignAdminApplication: (id, body) => request('POST', `/api/admin/applications/${id}/assign`, body),
   requestAdminApplicationInformation: (id, body) => request('POST', `/api/admin/applications/${id}/request-information`, body),
   decideAdminApplication: (id, body) => request('POST', `/api/admin/applications/${id}/decision`, body),
+  deleteAdminApplication: (id) => request('DELETE', `/api/admin/applications/${id}`),
   listAdminUsers: () => request('GET', '/api/admin/users'),
   createAdminUser: (body) => request('POST', '/api/admin/users', body),
   updateAdminUser: (id, body) => request('PUT', `/api/admin/users/${id}`, body),

@@ -3231,6 +3231,12 @@ body { min-height: 100vh; }
   justify-content: center;
 }
 
+.case-actions-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 12px 0;
+}
+
 .case-action-panel {
   background: var(--color-surface-low);
   border: 1px solid var(--color-border);

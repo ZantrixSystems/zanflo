@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
@@ -38,6 +38,7 @@ function DataRow({ label, value }) {
 
 export default function AdminApplicationDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { session, logout, refresh } = useStaffAuth();
   const [application, setApplication] = useState(null);
   const [decisions, setDecisions] = useState([]);
@@ -87,7 +88,12 @@ export default function AdminApplicationDetailPage() {
     setNotice('');
 
     try {
-      if (action === 'assign') {
+      if (action === 'delete') {
+        if (!window.confirm('Delete this application? This cannot be undone.')) { setSaving(false); return; }
+        await api.deleteAdminApplication(id);
+        navigate('/admin/cases');
+        return;
+      } else if (action === 'assign') {
         await api.assignAdminApplication(id, { assigned_user_id: session.user_id });
         setNotice('Application assigned to you.');
       } else if (action === 'request_info') {
@@ -346,6 +352,15 @@ export default function AdminApplicationDetailPage() {
                       Refuse
                     </button>
                   )}
+                  <div className="case-actions-divider" />
+                  <button
+                    type="button"
+                    className="btn btn-danger case-action-btn"
+                    onClick={() => runAction('delete')}
+                    disabled={saving}
+                  >
+                    Delete case
+                  </button>
                 </div>
               </aside>
             )}
@@ -357,6 +372,19 @@ export default function AdminApplicationDetailPage() {
                   <p className="case-closed-note">
                     This application has been <strong>{application.status}</strong>. No further actions are available.
                   </p>
+                  {session.role === 'manager' && (
+                    <>
+                      <div className="case-actions-divider" />
+                      <button
+                        type="button"
+                        className="btn btn-danger case-action-btn"
+                        onClick={() => runAction('delete')}
+                        disabled={saving}
+                      >
+                        Delete case
+                      </button>
+                    </>
+                  )}
                 </div>
               </aside>
             )}

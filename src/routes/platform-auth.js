@@ -98,7 +98,8 @@ async function signup(request, env) {
         status,
         contact_name,
         contact_email,
-        activated_at
+        activated_at,
+        trial_ends_at
       )
       VALUES (
         ${organisationName},
@@ -107,7 +108,8 @@ async function signup(request, env) {
         'active',
         ${adminName},
         ${adminEmail},
-        NOW()
+        NOW(),
+        NOW() + INTERVAL '30 days'
       )
       RETURNING id, name, slug, subdomain, status, created_at
     ),

@@ -119,46 +119,11 @@
             if (!data || !title || !body || !action) return;
 
             if (window.location.pathname === '/admin/bootstrap') {
-              const token = new URLSearchParams(window.location.search).get('token');
-              if (!token) {
-                title.textContent = 'Bootstrap link is incomplete';
-                body.textContent = 'This council setup link is missing its token. Return to the signup page and try again.';
-                action.textContent = 'Go to zanflo.com';
-                action.setAttribute('href', 'https://zanflo.com');
-                return;
-              }
-
-              title.textContent = 'Signing you in';
-              body.textContent = 'We are finishing your first council admin sign-in.';
-              action.textContent = 'Refresh page';
-              action.setAttribute('href', window.location.href);
-
-              fetch('/api/staff/bootstrap-exchange', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Accept: 'application/json',
-                },
-                body: JSON.stringify({ token }),
-              })
-                .then(async (response) => {
-                  const payload = await response.json().catch(() => ({}));
-                  if (!response.ok) {
-                    throw new Error(payload.error || 'Bootstrap sign-in failed.');
-                  }
-
-                  const target = payload.session?.role === 'tenant_admin'
-                    ? '/admin/settings?setup=1'
-                    : '/admin/dashboard';
-                  window.location.replace(target);
-                })
-                .catch((error) => {
-                  title.textContent = 'Bootstrap sign-in failed';
-                  body.textContent = error.message || 'We could not finish the council admin sign-in from this link.';
-                  action.textContent = 'Go to staff sign in';
-                  action.setAttribute('href', '/admin');
-                });
+              // Let the React app (TenantBootstrapExchangePage) handle the
+              // bootstrap exchange and redirect. The shell must not call
+              // the exchange endpoint here — it would consume the single-use
+              // token before React mounts, causing a 401 in the React flow.
+              fallback.classList.remove('is-visible');
               return;
             }
 

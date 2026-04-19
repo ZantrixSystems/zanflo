@@ -45,11 +45,13 @@ export default function ApexCouncilSignupPage() {
         subdomain_slug: slugify(form.subdomain_slug || form.organisation_name),
       };
       const data = await api.platformSignup(payload);
-      setNotice(`Tenant created. Redirecting you to ${data.tenant.hostname}...`);
+      setNotice(`Workspace created. Taking you to ${data.tenant.hostname} now…`);
+      // Leave saving=true so the button stays disabled while the browser navigates.
+      // The bootstrap exchange page at the tenant subdomain handles the 7-second
+      // progress screen and final redirect to /admin/dashboard.
       window.location.href = data.bootstrap_redirect;
     } catch (err) {
       setError(err.message || 'Could not create your council workspace.');
-    } finally {
       setSaving(false);
     }
   }

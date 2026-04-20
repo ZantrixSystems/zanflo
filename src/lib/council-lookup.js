@@ -87,7 +87,8 @@ export async function handleCouncilLookup(postcode) {
     }
     let authRes;
     try {
-      authRes = await govFetch(`${GOV_API}${location}`);
+      const authorityUrl = location.startsWith('http') ? location : `${GOV_API}${location}`;
+      authRes = await govFetch(authorityUrl);
     } catch (err) {
       console.error('[council-lookup] GOV authority fetch failed:', err.message);
       return json({ error: 'Council lookup is unavailable. Enter details manually.', kind: 'service' }, 502);

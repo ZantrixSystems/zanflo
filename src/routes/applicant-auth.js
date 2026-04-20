@@ -216,7 +216,7 @@ async function getProfile(request, env) {
   const rows = await sql`
     SELECT id, email, full_name, phone
     FROM applicant_accounts
-    WHERE id = ${session.applicant_id}
+    WHERE id = ${session.applicant_account_id}
       AND tenant_id = ${session.tenant_id}
   `;
   if (rows.length === 0) return error('Account not found', 404);
@@ -226,6 +226,7 @@ async function getProfile(request, env) {
 
 // ---------------------------------------------------------------------------
 // PUT /api/applicant/profile
+// Updates name, phone, optionally email, optionally password.
 // ---------------------------------------------------------------------------
 async function updateProfile(request, env) {
   const session = await requireApplicant(request, env);
@@ -234,32 +235,80 @@ async function updateProfile(request, env) {
   let body;
   try { body = await request.json(); } catch { return error('Invalid JSON body'); }
 
-  const full_name = body.full_name?.trim() ?? '';
-  const phone     = body.phone?.trim() ?? null;
+  const full_name        = body.full_name?.trim() ?? '';
+  const phone            = body.phone?.trim() || null;
+  const new_email        = body.email?.trim().toLowerCase() || null;
+  const current_password = body.current_password || null;
+  const new_password     = body.new_password || null;
 
   if (!full_name || full_name.length < 2) return error('Full name is required.');
 
   const sql = getDb(env);
-  const rows = await sql`
+
+  // Fetch current account to verify password when changing credentials
+  const accountRows = await sql`
+    SELECT id, email, password_hash
+    FROM applicant_accounts
+    WHERE id = ${session.applicant_account_id}
+      AND tenant_id = ${session.tenant_id}
+  `;
+  if (accountRows.length === 0) return error('Account not found', 404);
+  const account = accountRows[0];
+
+  // Email or password change requires current password
+  if (new_email || new_password) {
+    if (!current_password) return error('Current password is required to change your email or password.');
+    const valid = await verifyPassword(current_password, account.password_hash);
+    if (!valid) return error('Current password is incorrect.');
+  }
+
+  // If changing email, check it is not already in use by another account on this tenant
+  if (new_email && new_email !== account.email) {
+    const clash = await sql`
+      SELECT id FROM applicant_accounts
+      WHERE email = ${new_email} AND tenant_id = ${session.tenant_id} AND id != ${account.id}
+    `;
+    if (clash.length > 0) return error('That email address is already in use.', 409);
+  }
+
+  // Build the update
+  let newPasswordHash = null;
+  if (new_password) {
+    if (new_password.length < 8) return error('New password must be at least 8 characters.');
+    newPasswordHash = await hashPassword(new_password);
+  }
+
+  const resolvedEmail = (new_email && new_email !== account.email) ? new_email : account.email;
+
+  const updated = await sql`
     UPDATE applicant_accounts
-    SET full_name = ${full_name}, phone = ${phone ?? null}, updated_at = NOW()
-    WHERE id = ${session.applicant_id}
+    SET
+      full_name     = ${full_name},
+      phone         = ${phone},
+      email         = ${resolvedEmail},
+      password_hash = CASE WHEN ${newPasswordHash} IS NOT NULL THEN ${newPasswordHash} ELSE password_hash END,
+      updated_at    = NOW()
+    WHERE id = ${session.applicant_account_id}
       AND tenant_id = ${session.tenant_id}
     RETURNING id, email, full_name, phone
   `;
-  if (rows.length === 0) return error('Account not found', 404);
+  if (updated.length === 0) return error('Account not found', 404);
 
   await writeAuditLog(sql, {
     tenantId:   session.tenant_id,
     actorType:  'applicant',
-    actorId:    session.applicant_id,
+    actorId:    session.applicant_account_id,
     action:     'applicant.profile_updated',
     recordType: 'applicant_account',
-    recordId:   session.applicant_id,
-    meta:       { full_name },
+    recordId:   session.applicant_account_id,
+    meta: {
+      full_name,
+      email_changed:    resolvedEmail !== account.email,
+      password_changed: !!newPasswordHash,
+    },
   });
 
-  return json({ profile: rows[0] });
+  return json({ profile: updated[0] });
 }
 
 // ---------------------------------------------------------------------------

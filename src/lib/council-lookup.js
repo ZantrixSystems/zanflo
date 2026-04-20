@@ -14,11 +14,17 @@
 const GOV_API = 'https://www.gov.uk';
 const TIMEOUT_MS = 6000;
 
-async function govFetch(url) {
+async function govFetch(url, { followRedirects = true } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      // Cloudflare Workers follow redirects automatically by default.
+      // The postcode endpoint returns a 302 we need to inspect, so we
+      // suppress auto-follow on that first call only.
+      redirect: followRedirects ? 'follow' : 'manual',
+    });
     clearTimeout(timer);
     return res;
   } catch (err) {
@@ -60,7 +66,7 @@ export async function handleCouncilLookup(postcode) {
 
   let govRes;
   try {
-    govRes = await govFetch(`${GOV_API}/api/local-authority?postcode=${encodeURIComponent(postcode.trim())}`);
+    govRes = await govFetch(`${GOV_API}/api/local-authority?postcode=${encodeURIComponent(postcode.trim())}`, { followRedirects: false });
   } catch (err) {
     const isTimeout = err.name === 'AbortError';
     console.error('[council-lookup] GOV API fetch failed:', err.message);

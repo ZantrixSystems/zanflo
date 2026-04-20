@@ -5,8 +5,8 @@ export function buildTenantAdminNav(session) {
 
   if (session && ['officer', 'manager', 'tenant_admin'].includes(session.role)) {
     items.push(
-      { type: 'section', label: 'Work queue' },
-      { to: '/admin/cases', label: 'All cases' },
+      { type: 'section', label: 'Licensing' },
+      { to: '/admin/cases', label: 'All applications' },
     );
   }
 

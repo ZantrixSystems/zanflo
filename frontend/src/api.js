@@ -162,6 +162,7 @@ export const api = {
   decidePremiseCase: (id, body) => request('POST', `/api/admin/premise-cases/${id}/decision`, body),
   addPremiseCaseNote: (id, body) => request('POST', `/api/admin/premise-cases/${id}/note`, body),
   deletePremiseCase: (id) => request('DELETE', `/api/admin/premise-cases/${id}`),
+  movePremiseCaseStatus: (id, body) => request('POST', `/api/admin/premise-cases/${id}/move-status`, body),
 
   // Licence section definitions
   listLicenceSections: () => request('GET', '/api/admin/licence-sections'),

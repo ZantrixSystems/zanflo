@@ -186,12 +186,12 @@ export default function AdminCasesPage() {
       onSessionRefresh={refresh}
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
-        { label: 'Cases' },
+        { label: 'All applications' },
       ]}
     >
       <div className="queue-page-header">
-        <h1 className="queue-page-title">Cases</h1>
-        <p className="queue-page-subtitle">All premises licence cases. Use filters to narrow the list.</p>
+        <h1 className="queue-page-title">Premises applications</h1>
+        <p className="queue-page-subtitle">All premises licence applications. Use filters to narrow the list.</p>
       </div>
 
       {/* Filter toolbar */}
@@ -283,20 +283,20 @@ export default function AdminCasesPage() {
       ) : cases.length === 0 ? (
         <div className="queue-empty">
           <div className="queue-empty-title">
-            {hasActiveFilters ? 'No cases match these filters' : 'No cases found'}
+            {hasActiveFilters ? 'No applications match these filters' : 'No applications found'}
           </div>
           {hasActiveFilters && (
             <p className="queue-empty-hint">
               <button type="button" className="link-btn" onClick={clearAllFilters}>
                 Clear all filters
               </button>{' '}
-              to see all cases.
+              to see all applications.
             </p>
           )}
         </div>
       ) : (
         <>
-          <div className="queue-count">{cases.length} case{cases.length === 1 ? '' : 's'}</div>
+          <div className="queue-count">{cases.length} application{cases.length === 1 ? '' : 's'}</div>
           <div className="queue-table-wrap">
             <table className="queue-table">
               <thead>
@@ -321,7 +321,7 @@ export default function AdminCasesPage() {
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = path; }}
                       role="link"
-                      aria-label={`Case: ${formatRef(row)}`}
+                      aria-label={`Application: ${formatRef(row)}`}
                     >
                       <td className="queue-col-ref">
                         <Link

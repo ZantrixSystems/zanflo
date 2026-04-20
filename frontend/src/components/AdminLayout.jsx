@@ -55,9 +55,10 @@ export default function AdminLayout({ children, session, onSignOut, onSessionRef
     }
   }
 
-  async function handleDeleteFilter(id, e) {
+  async function handleDeleteFilter(id, name, e) {
     e.preventDefault();
     e.stopPropagation();
+    if (!window.confirm(`Delete saved filter "${name}"?`)) return;
     await api.deleteAdminSavedFilter(id).catch(() => {});
     setSavedFilters((prev) => prev.filter((f) => f.id !== id));
   }
@@ -122,7 +123,7 @@ export default function AdminLayout({ children, session, onSignOut, onSessionRef
                     <button
                       type="button"
                       className="admin-nav-saved-filter-remove"
-                      onClick={(e) => handleDeleteFilter(f.id, e)}
+                      onClick={(e) => handleDeleteFilter(f.id, f.name, e)}
                       aria-label={`Remove saved filter "${f.name}"`}
                       title="Remove"
                     >

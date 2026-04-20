@@ -16,6 +16,40 @@ const STATUS_META = {
   refused:              { label: 'Refused',            cls: 'badge-refused' },
 };
 
+// Full ordered workflow path
+const WORKFLOW_STEPS = [
+  'submitted',
+  'under_review',
+  'awaiting_information',
+  'verified',
+  'under_consultation',
+  'licensed',
+];
+
+// Valid next statuses from each status (for the status-change control)
+const NEXT_STATUSES = {
+  submitted:            ['under_review'],
+  under_review:         ['awaiting_information', 'verified'],
+  awaiting_information: ['under_review'],
+  waiting_on_officer:   ['under_review', 'verified'],
+  verified:             ['under_consultation', 'licensed', 'refused'],
+  under_consultation:   ['licensed', 'refused'],
+  licensed:             [],
+  refused:              [],
+  draft:                [],
+};
+
+// Labels shown in the dropdown
+const NEXT_STATUS_LABELS = {
+  under_review:         'Move to Under review',
+  awaiting_information: 'Request information from applicant',
+  waiting_on_officer:   'Mark as waiting on officer',
+  verified:             'Mark as verified',
+  under_consultation:   'Move to Consultation',
+  licensed:             'Grant licence',
+  refused:              'Refuse application',
+};
+
 function StatusBadge({ status }) {
   const meta = STATUS_META[status] ?? { label: status?.replace(/_/g, ' ') ?? '—', cls: 'badge-draft' };
   return <span className={`status-badge ${meta.cls}`}>{meta.label}</span>;
@@ -40,21 +74,64 @@ function DataRow({ label, value }) {
 }
 
 // ---------------------------------------------------------------------------
+// Workflow path visualiser
+// ---------------------------------------------------------------------------
+function WorkflowPath({ currentStatus }) {
+  const isClosed = currentStatus === 'refused';
+  const displaySteps = isClosed
+    ? [...WORKFLOW_STEPS.slice(0, -1), 'refused']
+    : WORKFLOW_STEPS;
+
+  // Find where current status sits in the linear path
+  const currentIdx = displaySteps.indexOf(currentStatus);
+  // waiting_on_officer is a loop state — treat as under_review position
+  const effectiveIdx = currentStatus === 'waiting_on_officer'
+    ? displaySteps.indexOf('under_review')
+    : currentIdx;
+
+  return (
+    <div className="workflow-path">
+      {displaySteps.map((step, i) => {
+        const isCurrent = step === currentStatus
+          || (currentStatus === 'waiting_on_officer' && step === 'under_review');
+        const isPast    = effectiveIdx > i;
+        const meta      = STATUS_META[step] ?? { label: step };
+        return (
+          <div
+            key={step}
+            className={`workflow-step${isCurrent ? ' workflow-step-current' : ''}${isPast ? ' workflow-step-past' : ''}`}
+          >
+            <div className="workflow-step-dot" />
+            <div className="workflow-step-label">{meta.label}</div>
+            {i < displaySteps.length - 1 && <div className="workflow-step-connector" />}
+          </div>
+        );
+      })}
+      {currentStatus === 'waiting_on_officer' && (
+        <div className="workflow-loop-note">Currently waiting on officer response</div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Event type labels and styles for timeline
 // ---------------------------------------------------------------------------
 const EVENT_META = {
-  case_created:           { label: 'Case created',             type: 'system' },
-  case_submitted:         { label: 'Case submitted',           type: 'submit' },
-  case_modified:          { label: 'Case modified by applicant', type: 'modified' },
-  status_changed:         { label: 'Status changed',           type: 'status' },
-  officer_assigned:       { label: 'Officer assigned',         type: 'assign' },
-  information_requested:  { label: 'Information requested',    type: 'request' },
-  information_provided:   { label: 'Information provided',     type: 'response' },
-  section_added:          { label: 'Section added',            type: 'system' },
-  officer_note:           { label: 'Officer note',             type: 'note' },
-  applicant_message:      { label: 'Applicant message',        type: 'message' },
-  decision_made:          { label: 'Decision recorded',        type: 'decision' },
+  case_created:           { label: 'Application created',        type: 'system' },
+  case_submitted:         { label: 'Application submitted',      type: 'submit' },
+  case_modified:          { label: 'Application modified',       type: 'modified' },
+  status_changed:         { label: 'Status changed',             type: 'status' },
+  officer_assigned:       { label: 'Officer assigned',           type: 'assign' },
+  information_requested:  { label: 'Information requested',      type: 'request' },
+  information_provided:   { label: 'Information provided',       type: 'response' },
+  section_added:          { label: 'Section added',              type: 'system' },
+  officer_note:           { label: 'Officer note',               type: 'note' },
+  applicant_message:      { label: 'Applicant message',          type: 'message' },
+  decision_made:          { label: 'Decision recorded',          type: 'decision' },
 };
+
+const TIMELINE_PAGE_SIZE = 5;
 
 function TimelineEvent({ event }) {
   const meta = EVENT_META[event.event_type] ?? { label: event.event_type, type: 'system' };
@@ -70,32 +147,31 @@ function TimelineEvent({ event }) {
           <div className="case-timeline-by">by {event.actor_name}</div>
         )}
 
-        {/* Status change: show from → to */}
         {event.event_type === 'status_changed' && payload.from && payload.to && (
           <div className="case-timeline-detail">
             <StatusBadge status={payload.from} /> → <StatusBadge status={payload.to} />
           </div>
         )}
 
-        {/* Information request or response */}
+        {payload.comment && (
+          <div className="case-timeline-notes">{payload.comment}</div>
+        )}
+
         {(event.event_type === 'information_requested' || event.event_type === 'information_provided') && payload.notes && (
           <div className="case-timeline-notes">{payload.notes}</div>
         )}
 
-        {/* Officer note */}
         {event.event_type === 'officer_note' && payload.body && (
           <div className="case-timeline-notes case-timeline-internal">{payload.body}</div>
         )}
 
-        {/* Decision */}
         {event.event_type === 'decision_made' && payload.decision && (
           <div className="case-timeline-notes">
-            <strong>{payload.decision === 'licensed' ? 'Licensed' : 'Refused'}</strong>
+            <strong>{payload.decision === 'licensed' ? 'Licence granted' : 'Refused'}</strong>
             {payload.notes && `: ${payload.notes}`}
           </div>
         )}
 
-        {/* Assignment */}
         {event.event_type === 'officer_assigned' && payload.user_name && (
           <div className="case-timeline-detail">Assigned to {payload.user_name}</div>
         )}
@@ -124,9 +200,14 @@ export default function AdminCaseDetailPage() {
   const [noteText, setNoteText] = useState('');
   const [showNote, setShowNote] = useState(false);
 
-  // Action panel: null | 'request_info' | 'verify' | 'licensed' | 'refused'
-  const [activeAction, setActiveAction] = useState(null);
-  const [actionNotes, setActionNotes]   = useState('');
+  // Timeline sort + pagination
+  const [timelineNewest, setTimelineNewest] = useState(true);
+  const [timelineVisible, setTimelineVisible] = useState(TIMELINE_PAGE_SIZE);
+
+  // Status-change control
+  const [nextStatus, setNextStatus]     = useState('');
+  const [statusComment, setStatusComment] = useState('');
+  const [showStatusPanel, setShowStatusPanel] = useState(false);
 
   async function loadCase() {
     const data = await api.getPremiseCase(id);
@@ -138,61 +219,88 @@ export default function AdminCaseDetailPage() {
   useEffect(() => {
     let active = true;
     loadCase()
-      .catch((err) => { if (active) setError(err.message || 'Could not load case.'); })
+      .catch((err) => { if (active) setError(err.message || 'Could not load application.'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
 
-  function openAction(action) {
-    setActiveAction(action);
-    setActionNotes('');
+  // Reset pagination when sort changes
+  useEffect(() => { setTimelineVisible(TIMELINE_PAGE_SIZE); }, [timelineNewest]);
+
+  function openStatusPanel() {
+    setNextStatus('');
+    setStatusComment('');
+    setShowStatusPanel(true);
     setError('');
     setNotice('');
   }
 
-  function cancelAction() {
-    setActiveAction(null);
-    setActionNotes('');
+  function cancelStatusPanel() {
+    setShowStatusPanel(false);
+    setNextStatus('');
+    setStatusComment('');
   }
 
-  async function runAction(action) {
-    if (action === 'refused' && !actionNotes.trim()) {
-      setError('A reason is required when refusing a case.');
-      return;
-    }
+  async function submitStatusChange() {
+    if (!nextStatus) { setError('Select a next status.'); return; }
+    if (!statusComment.trim()) { setError('A comment is required when changing status.'); return; }
 
     setSaving(true);
     setError('');
     setNotice('');
 
     try {
-      if (action === 'delete') {
-        if (!window.confirm('Delete this case? This cannot be undone.')) { setSaving(false); return; }
-        await api.deletePremiseCase(id);
-        navigate('/admin/cases');
-        return;
-      }
-
-      if (action === 'assign') {
-        await api.assignPremiseCase(id, { assigned_user_id: session.user_id });
-        setNotice('Case assigned to you.');
-      } else if (action === 'request_info') {
-        await api.requestPremiseCaseInformation(id, { notes: actionNotes });
+      if (nextStatus === 'awaiting_information') {
+        await api.requestPremiseCaseInformation(id, { notes: statusComment });
         setNotice('Information requested from applicant.');
-      } else if (action === 'verify') {
-        await api.verifyPremiseCase(id, { notes: actionNotes });
-        setNotice('Case marked as verified.');
-      } else if (action === 'licensed' || action === 'refused') {
-        await api.decidePremiseCase(id, { decision: action, notes: actionNotes });
-        setNotice(action === 'licensed' ? 'Licence granted.' : 'Case refused.');
+      } else if (nextStatus === 'under_review') {
+        await api.movePremiseCaseStatus(id, { to_status: 'under_review', comment: statusComment });
+        setNotice('Application moved to under review.');
+      } else if (nextStatus === 'verified') {
+        await api.verifyPremiseCase(id, { notes: statusComment });
+        setNotice('Application marked as verified.');
+      } else if (nextStatus === 'under_consultation') {
+        await api.movePremiseCaseStatus(id, { to_status: 'under_consultation', comment: statusComment });
+        setNotice('Application moved to consultation.');
+      } else if (nextStatus === 'licensed' || nextStatus === 'refused') {
+        await api.decidePremiseCase(id, { decision: nextStatus, notes: statusComment });
+        setNotice(nextStatus === 'licensed' ? 'Licence granted.' : 'Application refused.');
+      } else {
+        await api.movePremiseCaseStatus(id, { to_status: nextStatus, comment: statusComment });
+        setNotice(`Status updated to ${STATUS_META[nextStatus]?.label ?? nextStatus}.`);
       }
 
-      setActiveAction(null);
-      setActionNotes('');
+      cancelStatusPanel();
       await loadCase();
     } catch (err) {
-      setError(err.message || 'Action failed.');
+      setError(err.message || 'Could not update status.');
     } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAssign() {
+    setSaving(true);
+    setError('');
+    try {
+      await api.assignPremiseCase(id, { assigned_user_id: session.user_id });
+      setNotice('Application assigned to you.');
+      await loadCase();
+    } catch (err) {
+      setError(err.message || 'Could not assign.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm('Delete this application? This cannot be undone.')) return;
+    setSaving(true);
+    try {
+      await api.deletePremiseCase(id);
+      navigate('/admin/cases');
+    } catch (err) {
+      setError(err.message || 'Could not delete.');
       setSaving(false);
     }
   }
@@ -216,10 +324,15 @@ export default function AdminCaseDetailPage() {
   const isClosed       = ['licensed', 'refused'].includes(plc?.status);
   const isActive       = !isClosed && plc?.status !== 'draft';
 
-  const REVIEW_STATUSES = ['submitted', 'under_review', 'waiting_on_officer'];
-  const canRequestInfo  = REVIEW_STATUSES.includes(plc?.status);
-  const canVerify       = ['under_review', 'waiting_on_officer'].includes(plc?.status);
-  const canDecide       = ['verified', 'under_consultation'].includes(plc?.status);
+  const availableNextStatuses = NEXT_STATUSES[plc?.status] ?? [];
+
+  // Timeline ordering + pagination
+  const sortedEvents = timelineNewest ? [...events].reverse() : events;
+  const visibleEvents = sortedEvents.slice(0, timelineVisible);
+  const hasMoreEvents = sortedEvents.length > timelineVisible;
+
+  // Comment required for refusal (extra validation)
+  const refusalSelected = nextStatus === 'refused';
 
   return (
     <AdminLayout
@@ -228,19 +341,19 @@ export default function AdminCaseDetailPage() {
       onSessionRefresh={refresh}
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
-        { to: '/admin/cases', label: 'Cases' },
-        { label: plc?.premises_name || 'Case' },
+        { to: '/admin/cases', label: 'All applications' },
+        { label: plc?.premises_name || 'Application' },
       ]}
     >
-      <Link to="/admin/cases" className="back-link">← Back to cases</Link>
+      <Link to="/admin/cases" className="back-link">← Back to applications</Link>
 
       {loading ? (
         <div className="spinner">Loading...</div>
       ) : !plc ? (
-        <div className="alert alert-error">Case not found.</div>
+        <div className="alert alert-error">Application not found.</div>
       ) : (
         <>
-          {/* Case header */}
+          {/* Application header */}
           <section className="case-header">
             <div className="case-header-main">
               <div className="case-header-ref">{plc.ref}</div>
@@ -262,11 +375,14 @@ export default function AdminCaseDetailPage() {
             </div>
           </section>
 
+          {/* Workflow path */}
+          <WorkflowPath currentStatus={plc.status} />
+
           {error  && <div className="alert alert-error">{error}</div>}
           {notice && <div className="alert alert-success">{notice}</div>}
 
           <div className="case-layout">
-            {/* Left: case information */}
+            {/* Left: application information */}
             <div className="case-content">
 
               {/* Premises details */}
@@ -317,22 +433,40 @@ export default function AdminCaseDetailPage() {
               {/* Timeline */}
               {events.length > 0 && (
                 <section className="form-section">
-                  <div className="form-section-title">Case timeline</div>
+                  <div className="form-section-title-row">
+                    <div className="form-section-title">Timeline</div>
+                    <button
+                      type="button"
+                      className="timeline-sort-toggle"
+                      onClick={() => setTimelineNewest((v) => !v)}
+                    >
+                      {timelineNewest ? 'Newest first ↓' : 'Oldest first ↑'}
+                    </button>
+                  </div>
                   <ol className="case-timeline">
-                    {events.map((ev) => (
+                    {visibleEvents.map((ev) => (
                       <TimelineEvent key={ev.id} event={ev} />
                     ))}
                   </ol>
+                  {hasMoreEvents && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary timeline-show-more"
+                      onClick={() => setTimelineVisible((v) => v + TIMELINE_PAGE_SIZE)}
+                    >
+                      Show more ({sortedEvents.length - timelineVisible} remaining)
+                    </button>
+                  )}
                 </section>
               )}
 
               {/* Add officer note */}
               {isActive && (
                 <section className="form-section">
-                  <div className="form-section-title">Add note</div>
+                  <div className="form-section-title">Internal note</div>
                   {showNote ? (
                     <div className="case-action-panel">
-                      <p className="case-action-panel-hint">Internal note — not visible to the applicant.</p>
+                      <p className="case-action-panel-hint">Not visible to the applicant.</p>
                       <textarea
                         className="case-action-textarea"
                         rows={3}
@@ -360,18 +494,18 @@ export default function AdminCaseDetailPage() {
             {/* Right: actions sidebar */}
             <aside className="case-sidebar">
               <div className="case-actions-card">
-                <div className="case-actions-title">Case actions</div>
+                <div className="case-actions-title">Actions</div>
 
                 {isClosed ? (
                   <>
                     <p className="case-closed-note">
-                      This case is <strong>{plc.status}</strong>. No further actions available.
+                      This application is <strong>{STATUS_META[plc.status]?.label ?? plc.status}</strong>. No further actions available.
                     </p>
-                    {session.role === 'manager' && (
+                    {['manager', 'tenant_admin'].includes(session.role) && (
                       <>
                         <div className="case-actions-divider" />
-                        <button type="button" className="btn btn-danger case-action-btn" onClick={() => runAction('delete')} disabled={saving}>
-                          Delete case
+                        <button type="button" className="btn btn-danger case-action-btn" onClick={handleDelete} disabled={saving}>
+                          Delete application
                         </button>
                       </>
                     )}
@@ -379,133 +513,75 @@ export default function AdminCaseDetailPage() {
                 ) : (
                   <>
                     {!isAssignedToMe && (
-                      <button type="button" className="btn btn-secondary case-action-btn" onClick={() => runAction('assign')} disabled={saving}>
+                      <button type="button" className="btn btn-secondary case-action-btn" onClick={handleAssign} disabled={saving}>
                         Assign to me
                       </button>
                     )}
 
-                    {/* Request information */}
-                    {canRequestInfo && (
-                      activeAction === 'request_info' ? (
+                    {/* Status change control */}
+                    {availableNextStatuses.length > 0 && (
+                      showStatusPanel ? (
                         <div className="case-action-panel">
-                          <div className="case-action-panel-title">Request information</div>
-                          <p className="case-action-panel-hint">Describe what is needed from the applicant.</p>
+                          <div className="case-action-panel-title">Change status</div>
+
+                          <label className="case-action-label" htmlFor="next-status-select">Next status</label>
+                          <select
+                            id="next-status-select"
+                            className="case-action-select"
+                            value={nextStatus}
+                            onChange={(e) => setNextStatus(e.target.value)}
+                          >
+                            <option value="">Select…</option>
+                            {availableNextStatuses.map((s) => (
+                              <option key={s} value={s}>{NEXT_STATUS_LABELS[s] ?? STATUS_META[s]?.label ?? s}</option>
+                            ))}
+                          </select>
+
+                          <label className="case-action-label" htmlFor="status-comment">
+                            Comment {refusalSelected ? '(required)' : '(required)'}
+                          </label>
                           <textarea
+                            id="status-comment"
                             className="case-action-textarea"
                             rows={3}
-                            value={actionNotes}
-                            onChange={(e) => setActionNotes(e.target.value)}
-                            placeholder="What documents or information are required?"
+                            value={statusComment}
+                            onChange={(e) => setStatusComment(e.target.value)}
+                            placeholder={refusalSelected ? 'Reason for refusal…' : 'Add a comment…'}
                             autoFocus
                           />
-                          <div className="case-action-panel-btns">
-                            <button type="button" className="btn btn-secondary" onClick={cancelAction} disabled={saving}>Cancel</button>
-                            <button type="button" className="btn btn-primary" onClick={() => runAction('request_info')} disabled={saving || !actionNotes.trim()}>
-                              {saving ? 'Sending…' : 'Send request'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : activeAction == null && (
-                        <button type="button" className="btn btn-secondary case-action-btn" onClick={() => openAction('request_info')} disabled={saving}>
-                          Request information
-                        </button>
-                      )
-                    )}
 
-                    {/* Verify */}
-                    {canVerify && (
-                      activeAction === 'verify' ? (
-                        <div className="case-action-panel case-action-panel-approve">
-                          <div className="case-action-panel-title">Mark as verified</div>
-                          <p className="case-action-panel-hint">Confirming all information and documents have been reviewed.</p>
-                          <textarea
-                            className="case-action-textarea"
-                            rows={2}
-                            value={actionNotes}
-                            onChange={(e) => setActionNotes(e.target.value)}
-                            placeholder="Optional notes on verification…"
-                            autoFocus
-                          />
                           <div className="case-action-panel-btns">
-                            <button type="button" className="btn btn-secondary" onClick={cancelAction} disabled={saving}>Cancel</button>
-                            <button type="button" className="btn btn-primary" onClick={() => runAction('verify')} disabled={saving}>
-                              {saving ? 'Saving…' : 'Mark verified'}
+                            <button type="button" className="btn btn-secondary" onClick={cancelStatusPanel} disabled={saving}>Cancel</button>
+                            <button
+                              type="button"
+                              className={`btn ${nextStatus === 'refused' ? 'btn-danger' : 'btn-primary'}`}
+                              onClick={submitStatusChange}
+                              disabled={saving || !nextStatus || !statusComment.trim()}
+                            >
+                              {saving ? 'Saving…' : nextStatus === 'licensed' ? 'Grant licence' : nextStatus === 'refused' ? 'Confirm refusal' : 'Confirm'}
                             </button>
                           </div>
                         </div>
-                      ) : activeAction == null && (
-                        <button type="button" className="btn btn-primary case-action-btn" onClick={() => openAction('verify')} disabled={saving}>
-                          Mark as verified
-                        </button>
-                      )
-                    )}
-
-                    {/* Grant licence */}
-                    {canDecide && (
-                      activeAction === 'licensed' ? (
-                        <div className="case-action-panel case-action-panel-approve">
-                          <div className="case-action-panel-title">Grant licence</div>
-                          <textarea
-                            className="case-action-textarea"
-                            rows={2}
-                            value={actionNotes}
-                            onChange={(e) => setActionNotes(e.target.value)}
-                            placeholder="Optional notes on decision…"
-                            autoFocus
-                          />
-                          <div className="case-action-panel-btns">
-                            <button type="button" className="btn btn-secondary" onClick={cancelAction} disabled={saving}>Cancel</button>
-                            <button type="button" className="btn btn-primary" onClick={() => runAction('licensed')} disabled={saving}>
-                              {saving ? 'Granting…' : 'Grant licence'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : activeAction !== 'refused' && (
-                        <button type="button" className="btn btn-primary case-action-btn" onClick={() => openAction('licensed')} disabled={saving}>
-                          Grant licence
-                        </button>
-                      )
-                    )}
-
-                    {/* Refuse */}
-                    {canDecide && (
-                      activeAction === 'refused' ? (
-                        <div className="case-action-panel case-action-panel-refuse">
-                          <div className="case-action-panel-title">Refuse case</div>
-                          <p className="case-action-panel-hint">A reason is required. The applicant will be notified.</p>
-                          <textarea
-                            className="case-action-textarea"
-                            rows={3}
-                            value={actionNotes}
-                            onChange={(e) => setActionNotes(e.target.value)}
-                            placeholder="Reason for refusal (required)…"
-                            autoFocus
-                          />
-                          <div className="case-action-panel-btns">
-                            <button type="button" className="btn btn-secondary" onClick={cancelAction} disabled={saving}>Cancel</button>
-                            <button type="button" className="btn btn-danger" onClick={() => runAction('refused')} disabled={saving || !actionNotes.trim()}>
-                              {saving ? 'Refusing…' : 'Confirm refusal'}
-                            </button>
-                          </div>
-                        </div>
-                      ) : activeAction !== 'licensed' && (
-                        <button type="button" className="btn btn-danger case-action-btn" onClick={() => openAction('refused')} disabled={saving}>
-                          Refuse
+                      ) : (
+                        <button type="button" className="btn btn-primary case-action-btn" onClick={openStatusPanel} disabled={saving}>
+                          Update status
                         </button>
                       )
                     )}
 
                     <div className="case-actions-divider" />
-                    <button type="button" className="btn btn-danger case-action-btn" onClick={() => runAction('delete')} disabled={saving}>
-                      Delete case
-                    </button>
+                    {['manager', 'tenant_admin'].includes(session.role) && (
+                      <button type="button" className="btn btn-danger case-action-btn" onClick={handleDelete} disabled={saving}>
+                        Delete application
+                      </button>
+                    )}
                   </>
                 )}
               </div>
 
-              {/* Case metadata */}
+              {/* Application metadata */}
               <div className="case-actions-card" style={{ marginTop: '1rem' }}>
-                <div className="case-actions-title">Case info</div>
+                <div className="case-actions-title">Application info</div>
                 <dl className="case-data-grid">
                   <DataRow label="Submitted"     value={formatDate(plc.submitted_at)} />
                   <DataRow label="Last modified" value={plc.last_modified_at ? formatDate(plc.last_modified_at) : null} />

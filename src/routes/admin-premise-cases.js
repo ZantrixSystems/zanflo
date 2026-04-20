@@ -586,6 +586,69 @@ async function addNote(request, env, caseId) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/admin/premise-cases/:id/move-status  { to_status, comment }
+// Generic status transition for moves without a dedicated endpoint.
+// Allowed transitions: verified → under_consultation
+// ---------------------------------------------------------------------------
+async function moveStatus(request, env, caseId) {
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
+  if (!session) return error('Not authorised', 403);
+
+  let body;
+  try { body = await request.json(); } catch { return error('Invalid JSON'); }
+
+  const toStatus = body.to_status?.trim();
+  const comment  = body.comment?.trim() ?? null;
+
+  if (!toStatus) return error('to_status is required');
+  if (!comment)  return error('A comment is required when changing status');
+
+  const sql = getDb(env);
+  const plc = await loadCase(sql, session.tenant_id, caseId);
+  if (!plc) return error('Case not found', 404);
+
+  // Fixed allowed transitions for this generic endpoint
+  const ALLOWED_TRANSITIONS = {
+    verified:             ['under_consultation'],
+    awaiting_information: ['under_review'],
+    waiting_on_officer:   ['under_review'],
+    submitted:            ['under_review'],
+  };
+
+  const validNext = ALLOWED_TRANSITIONS[plc.status] ?? [];
+  if (!validNext.includes(toStatus)) {
+    return error(`Cannot move from ${plc.status} to ${toStatus}`, 409);
+  }
+
+  await sql`
+    UPDATE premise_licence_cases
+    SET status = ${toStatus}, updated_at = NOW()
+    WHERE id = ${caseId} AND tenant_id = ${session.tenant_id}
+  `;
+
+  await writeCaseEvent(sql, {
+    tenantId:  session.tenant_id,
+    caseId,
+    eventType: 'status_changed',
+    actorType: session.role,
+    actorId:   session.user_id,
+    payload:   { from: plc.status, to: toStatus, comment },
+  });
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  session.role,
+    actorId:    session.user_id,
+    action:     'premise_case.status_changed',
+    recordType: 'premise_licence_case',
+    recordId:   caseId,
+    meta:       { from: plc.status, to: toStatus, comment },
+  });
+
+  return json({ status: toStatus });
+}
+
+// ---------------------------------------------------------------------------
 // DELETE /api/admin/premise-cases/:id
 // Officers: can delete non-decided cases only
 // Managers: can delete any case
@@ -650,6 +713,7 @@ export async function handleAdminPremiseCaseRoutes(request, env) {
     if (action === 'verify')              return verifyCase(request, env, id);
     if (action === 'decision')            return recordDecision(request, env, id);
     if (action === 'note')                return addNote(request, env, id);
+    if (action === 'move-status')         return moveStatus(request, env, id);
   }
 
   return null;

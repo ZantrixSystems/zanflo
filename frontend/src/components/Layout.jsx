@@ -32,9 +32,15 @@ export default function Layout({
         </Link>
         {session && (
           <nav className="layout-header-nav">
-            <span style={{ fontSize: '.875rem', color: 'var(--color-text)' }}>
-              {session.full_name}
-            </span>
+            {session.role ? (
+              <span style={{ fontSize: '.875rem', color: 'var(--color-text)' }}>
+                {session.full_name}
+              </span>
+            ) : (
+              <Link to="/profile" style={{ fontSize: '.875rem', color: 'var(--color-text)' }}>
+                {session.full_name}
+              </Link>
+            )}
             <button onClick={handleLogout}>Sign out</button>
           </nav>
         )}

@@ -206,6 +206,63 @@ async function me(request, env) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/applicant/profile
+// ---------------------------------------------------------------------------
+async function getProfile(request, env) {
+  const session = await requireApplicant(request, env);
+  if (!session) return error('Not authenticated', 401);
+
+  const sql = getDb(env);
+  const rows = await sql`
+    SELECT id, email, full_name, phone
+    FROM applicant_accounts
+    WHERE id = ${session.applicant_id}
+      AND tenant_id = ${session.tenant_id}
+  `;
+  if (rows.length === 0) return error('Account not found', 404);
+
+  return json({ profile: rows[0] });
+}
+
+// ---------------------------------------------------------------------------
+// PUT /api/applicant/profile
+// ---------------------------------------------------------------------------
+async function updateProfile(request, env) {
+  const session = await requireApplicant(request, env);
+  if (!session) return error('Not authenticated', 401);
+
+  let body;
+  try { body = await request.json(); } catch { return error('Invalid JSON body'); }
+
+  const full_name = body.full_name?.trim() ?? '';
+  const phone     = body.phone?.trim() ?? null;
+
+  if (!full_name || full_name.length < 2) return error('Full name is required.');
+
+  const sql = getDb(env);
+  const rows = await sql`
+    UPDATE applicant_accounts
+    SET full_name = ${full_name}, phone = ${phone ?? null}, updated_at = NOW()
+    WHERE id = ${session.applicant_id}
+      AND tenant_id = ${session.tenant_id}
+    RETURNING id, email, full_name, phone
+  `;
+  if (rows.length === 0) return error('Account not found', 404);
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  'applicant',
+    actorId:    session.applicant_id,
+    action:     'applicant.profile_updated',
+    recordType: 'applicant_account',
+    recordId:   session.applicant_id,
+    meta:       { full_name },
+  });
+
+  return json({ profile: rows[0] });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 export async function handleApplicantAuthRoutes(request, env) {
@@ -216,6 +273,8 @@ export async function handleApplicantAuthRoutes(request, env) {
   if (method === 'POST' && url.pathname === '/api/applicant/login')    return login(request, env);
   if (method === 'POST' && url.pathname === '/api/applicant/logout')   return logout();
   if (method === 'GET'  && url.pathname === '/api/applicant/me')       return me(request, env);
+  if (method === 'GET'  && url.pathname === '/api/applicant/profile')  return getProfile(request, env);
+  if (method === 'PUT'  && url.pathname === '/api/applicant/profile')  return updateProfile(request, env);
 
   return null;
 }

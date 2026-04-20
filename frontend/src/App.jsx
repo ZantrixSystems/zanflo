@@ -4,6 +4,7 @@ import { useAuth } from './auth-context.jsx';
 
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
+import ApplicantProfilePage from './pages/ApplicantProfilePage.jsx';
 import DashboardPage from './pages/DashboardPage.jsx';
 import ApplicationPage from './pages/ApplicationPage.jsx';
 import PremisesListPage from './pages/PremisesListPage.jsx';
@@ -210,6 +211,14 @@ export default function App() {
       <Route path="/admin/bootstrap" element={<TenantBootstrapExchangePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/profile"
+        element={(
+          <RequireAuth>
+            <ApplicantProfilePage />
+          </RequireAuth>
+        )}
+      />
 
       <Route
         path="/dashboard"

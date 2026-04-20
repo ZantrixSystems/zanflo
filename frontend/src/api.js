@@ -58,6 +58,8 @@ export const api = {
   login: (body) => request('POST', '/api/applicant/login', body),
   logout: () => request('POST', '/api/applicant/logout'),
   me: () => request('GET', '/api/applicant/me'),
+  getProfile: () => request('GET', '/api/applicant/profile'),
+  updateProfile: (body) => request('PUT', '/api/applicant/profile', body),
   getTenantPublicConfig: () => request('GET', '/api/tenant/public-config'),
 
   getApplicationTypes: () => request('GET', '/api/application-types'),

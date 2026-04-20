@@ -102,10 +102,7 @@ export const api = {
     return request('GET', `/api/admin/cases${suffix}`);
   },
   getAdminCaseStats: () => request('GET', '/api/admin/cases/stats'),
-  listAdminSavedFilters: () => request('GET', '/api/admin/saved-filters'),
-  createAdminSavedFilter: (body) => request('POST', '/api/admin/saved-filters', body),
-  updateAdminSavedFilter: (id, body) => request('PUT', `/api/admin/saved-filters/${id}`, body),
-  deleteAdminSavedFilter: (id) => request('DELETE', `/api/admin/saved-filters/${id}`),
+
 
   listAdminApplications: (params = {}) => {
     const search = new URLSearchParams();
@@ -126,7 +123,6 @@ export const api = {
   updateAdminUser: (id, body) => request('PUT', `/api/admin/users/${id}`, body),
   getAdminSettings: () => request('GET', '/api/admin/settings'),
   getAdminOnboarding: () => request('GET', '/api/admin/onboarding'),
-  getAdminQueueStats: () => request('GET', '/api/admin/queue-stats'),
   updateAdminSettings: (body) => request('PUT', '/api/admin/settings', body),
   getAdminApplicationSetup: () => request('GET', '/api/admin/application-setup'),
   updateAdminApplicationSetup: (body) => request('PUT', '/api/admin/application-setup', body),

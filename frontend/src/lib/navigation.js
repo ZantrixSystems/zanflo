@@ -7,16 +7,13 @@ export function buildTenantAdminNav(session) {
     items.push(
       { type: 'section', label: 'Work queue' },
       { to: '/admin/cases', label: 'All cases' },
-      { to: '/admin/cases?assigned=mine', label: 'Assigned to me' },
-      { to: '/admin/cases?assigned=unassigned', label: 'Unassigned' },
     );
   }
 
   if (session?.role === 'tenant_admin') {
     items.push(
       { type: 'section', label: 'Administration' },
-      { to: '/admin/application-types', label: 'Application types' },
-      { to: '/admin/application-setup', label: 'Application setup' },
+      { to: '/admin/licence-sections', label: 'Licence sections' },
       { to: '/admin/users', label: 'Users' },
       { to: '/admin/settings', label: 'Settings' },
       { to: '/admin/audit', label: 'Audit' },

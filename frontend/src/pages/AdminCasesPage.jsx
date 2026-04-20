@@ -1,25 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../components/AdminLayout.jsx';
 import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
-// Saved filters live in the sidebar (AdminLayout) — not rendered here
 
 // ---------------------------------------------------------------------------
-// Status metadata — application statuses + premises verification states
+// Status metadata for premise_licence_cases
 // ---------------------------------------------------------------------------
 const STATUS_META = {
-  submitted:                 { label: 'Submitted',       cls: 'badge-submitted' },
-  under_review:              { label: 'Under review',    cls: 'badge-under-review' },
-  awaiting_information:      { label: 'Awaiting info',   cls: 'badge-awaiting' },
-  approved:                  { label: 'Approved',        cls: 'badge-approved' },
-  refused:                   { label: 'Refused',         cls: 'badge-refused' },
-  draft:                     { label: 'Draft',           cls: 'badge-draft' },
-  unverified:                { label: 'Not submitted',   cls: 'badge-draft' },
-  pending_verification:      { label: 'Awaiting review', cls: 'badge-submitted' },
-  verified:                  { label: 'Verified',        cls: 'badge-approved' },
-  verification_refused:      { label: 'Refused',         cls: 'badge-refused' },
-  more_information_required: { label: 'Info required',   cls: 'badge-awaiting' },
+  draft:                { label: 'Draft',               cls: 'badge-draft' },
+  submitted:            { label: 'Submitted',           cls: 'badge-submitted' },
+  under_review:         { label: 'Under review',        cls: 'badge-under-review' },
+  awaiting_information: { label: 'Awaiting info',       cls: 'badge-awaiting' },
+  waiting_on_officer:   { label: 'Waiting on officer',  cls: 'badge-awaiting' },
+  verified:             { label: 'Verified',            cls: 'badge-approved' },
+  under_consultation:   { label: 'Consultation',        cls: 'badge-under-review' },
+  licensed:             { label: 'Licensed',            cls: 'badge-approved' },
+  refused:              { label: 'Refused',             cls: 'badge-refused' },
 };
 
 function StatusBadge({ status }) {
@@ -27,16 +24,10 @@ function StatusBadge({ status }) {
   return <span className={`status-badge ${meta.cls}`}>{meta.label}</span>;
 }
 
-function formatCaseRef(row) {
-  if (row.case_type === 'premises_verification') return row.pv_ref || 'PV—';
+function formatRef(row) {
   if (!row.ref_number) return '—';
-  const prefix = (row.tenant_slug || 'APP').slice(0, 4).toUpperCase();
+  const prefix = (row.tenant_slug || 'CASE').slice(0, 4).toUpperCase();
   return `${prefix}-${String(row.ref_number).padStart(6, '0')}`;
-}
-
-function caseDetailPath(row) {
-  if (row.case_type === 'premises_verification') return `/admin/premises-verifications/${row.case_id}`;
-  return `/admin/applications/${row.case_id}`;
 }
 
 function formatShortDate(value) {
@@ -45,31 +36,21 @@ function formatShortDate(value) {
 }
 
 // ---------------------------------------------------------------------------
-// ActiveFilterTag — shows a dismissible chip for each active filter
+// Active filter tags
 // ---------------------------------------------------------------------------
-const FILTER_LABELS = {
-  assigned:     { mine: 'Assigned to me', unassigned: 'Unassigned' },
-  case_type:    { premises_verification: 'Premises verifications', application: 'Applications' },
-  status: {
-    submitted: 'Submitted', under_review: 'Under review', awaiting_information: 'Awaiting info',
-    approved: 'Approved', refused: 'Refused',
-    pending_verification: 'Awaiting review', more_information_required: 'Info required',
-    verified: 'Verified', verification_refused: 'Refused',
-  },
-  created_days: { 7: 'Last 7 days', 14: 'Last 14 days', 30: 'Last 30 days', 90: 'Last 90 days' },
+const STATUS_LABELS = {
+  submitted: 'Submitted', under_review: 'Under review', awaiting_information: 'Awaiting info',
+  waiting_on_officer: 'Waiting on officer', verified: 'Verified',
+  under_consultation: 'Consultation', licensed: 'Licensed', refused: 'Refused',
 };
 
-function ActiveFilterTags({ assigned, status, caseType, typeSlug, createdDays, typeOptions, onClear }) {
+function ActiveFilterTags({ filters, onClear }) {
   const tags = [];
-
-  if (assigned)    tags.push({ key: 'assigned',     label: FILTER_LABELS.assigned[assigned] || assigned });
-  if (caseType)    tags.push({ key: 'case_type',    label: FILTER_LABELS.case_type[caseType] || caseType });
-  if (status)      tags.push({ key: 'status',       label: FILTER_LABELS.status[status] || status });
-  if (typeSlug) {
-    const found = typeOptions.find((t) => t.slug === typeSlug);
-    tags.push({ key: 'type', label: found ? found.name : typeSlug });
-  }
-  if (createdDays) tags.push({ key: 'created_days', label: FILTER_LABELS.created_days[createdDays] || `Last ${createdDays} days` });
+  if (filters.status)        tags.push({ key: 'status',        label: STATUS_LABELS[filters.status] || filters.status });
+  if (filters.assigned)      tags.push({ key: 'assigned',      label: filters.assigned === 'mine' ? 'Assigned to me' : 'Unassigned' });
+  if (filters.search)        tags.push({ key: 'search',        label: `Search: "${filters.search}"` });
+  if (filters.postcode)      tags.push({ key: 'postcode',      label: `Postcode: ${filters.postcode}` });
+  if (filters.updated_after) tags.push({ key: 'updated_after', label: `Updated after ${filters.updated_after}` });
 
   if (tags.length === 0) return null;
 
@@ -99,50 +80,54 @@ export default function AdminCasesPage() {
   const { session, logout, refresh } = useStaffAuth();
   const [urlParams, setUrlParams] = useSearchParams();
 
-  const assigned    = urlParams.get('assigned') || '';
-  const status      = urlParams.get('status') || '';
-  const caseType    = urlParams.get('case_type') || '';
-  const typeSlug    = urlParams.get('type') || '';
-  const createdDays = urlParams.get('created_days') || '';
-  const sort        = urlParams.get('sort') || 'updated';
+  // Read filter state from URL
+  const status       = urlParams.get('status') || '';
+  const assigned     = urlParams.get('assigned') || '';
+  const search       = urlParams.get('search') || '';
+  const postcode     = urlParams.get('postcode') || '';
+  const updatedAfter = urlParams.get('updated_after') || '';
+  const sort         = urlParams.get('sort') || 'updated';
 
-  const [cases, setCases] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [typeOptions, setTypeOptions] = useState([]);
+  // Local state for the search input (debounced before writing to URL)
+  const [searchInput, setSearchInput] = useState(search);
+  const [postcodeInput, setPostcodeInput] = useState(postcode);
+
+  const [cases, setCases]       = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
   const [assigningId, setAssigningId] = useState(null);
 
-  const viewTitle = (() => {
-    if (assigned === 'mine') return 'Assigned to me';
-    if (assigned === 'unassigned') return 'Unassigned cases';
-    if (caseType === 'premises_verification') return 'Premises verifications';
-    return 'All cases';
-  })();
-
-  const viewSubtitle = (() => {
-    if (assigned === 'mine') return 'Cases currently assigned to you.';
-    if (assigned === 'unassigned') return 'Cases not yet picked up by an officer.';
-    if (caseType === 'premises_verification') return 'Review applicants\' ownership claims before they can submit licence applications.';
-    return 'All active cases across applications and premises verifications.';
-  })();
+  // Debounce search → URL param
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setParam('search', searchInput.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
-    api.getAdminApplicationSetup()
-      .then((d) => setTypeOptions(d.enabled_application_types ?? []))
-      .catch(() => {});
-  }, []);
+    const timer = setTimeout(() => {
+      setParam('postcode', postcodeInput.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [postcodeInput]);
 
+  // Sync local input state if URL changes externally (e.g. saved filter applied)
+  useEffect(() => { setSearchInput(urlParams.get('search') || ''); }, [urlParams.get('search')]);
+  useEffect(() => { setPostcodeInput(urlParams.get('postcode') || ''); }, [urlParams.get('postcode')]);
+
+  // Fetch cases whenever URL filters change
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
 
-    api.listAdminCases({
-      status:       status || undefined,
-      assigned:     assigned || undefined,
-      case_type:    caseType || undefined,
-      type:         typeSlug || undefined,
-      created_days: createdDays || undefined,
+    api.listPremiseCases({
+      status:        status || undefined,
+      assigned:      assigned || undefined,
+      search:        search || undefined,
+      postcode:      postcode || undefined,
+      updated_after: updatedAfter || undefined,
       sort,
     })
       .then((data) => { if (active) setCases(data.cases ?? []); })
@@ -150,7 +135,7 @@ export default function AdminCasesPage() {
       .finally(() => { if (active) setLoading(false); });
 
     return () => { active = false; };
-  }, [status, assigned, caseType, typeSlug, createdDays, sort]);
+  }, [status, assigned, search, postcode, updatedAfter, sort]);
 
   function setParam(key, value) {
     setUrlParams((prev) => {
@@ -162,32 +147,37 @@ export default function AdminCasesPage() {
 
   function clearParam(key) {
     setParam(key, '');
+    if (key === 'search')   setSearchInput('');
+    if (key === 'postcode') setPostcodeInput('');
   }
 
   function clearAllFilters() {
     setUrlParams({});
+    setSearchInput('');
+    setPostcodeInput('');
   }
 
   async function handleSelfAssign(e, caseId) {
     e.stopPropagation();
     setAssigningId(caseId);
     try {
-      await api.assignAdminApplication(caseId, { assigned_user_id: session.user_id });
+      await api.assignPremiseCase(caseId, { assigned_user_id: session.user_id });
       setCases((prev) =>
         prev.map((c) =>
-          c.case_id === caseId
+          c.id === caseId
             ? { ...c, assigned_user_id: session.user_id, assigned_user_name: session.full_name }
             : c
         )
       );
     } catch {
-      // silent — user can open case if needed
+      // silent — user can open the case if needed
     } finally {
       setAssigningId(null);
     }
   }
 
-  const hasActiveFilters = !!(status || assigned || caseType || typeSlug || createdDays);
+  const hasActiveFilters = !!(status || assigned || search || postcode || updatedAfter);
+  const activeFilters    = { status, assigned, search, postcode, updated_after: updatedAfter };
 
   return (
     <AdminLayout
@@ -196,28 +186,28 @@ export default function AdminCasesPage() {
       onSessionRefresh={refresh}
       breadcrumbs={[
         { to: '/admin/dashboard', label: 'Dashboard' },
-        { label: viewTitle },
+        { label: 'Cases' },
       ]}
     >
       <div className="queue-page-header">
-        <h1 className="queue-page-title">{viewTitle}</h1>
-        <p className="queue-page-subtitle">{viewSubtitle}</p>
+        <h1 className="queue-page-title">Cases</h1>
+        <p className="queue-page-subtitle">All premises licence cases. Use filters to narrow the list.</p>
       </div>
 
-      {/* Filter + sort toolbar */}
+      {/* Filter toolbar */}
       <div className="queue-toolbar">
         <div className="queue-filters">
-          <select
-            className={`queue-filter-select${caseType ? ' is-active' : ''}`}
-            value={caseType}
-            onChange={(e) => setParam('case_type', e.target.value)}
-            aria-label="Filter by case type"
-          >
-            <option value="">Case type</option>
-            <option value="premises_verification">Premises verification</option>
-            <option value="application">Applications</option>
-          </select>
+          {/* Free text search */}
+          <input
+            type="search"
+            className="queue-search-input"
+            placeholder="Search premises, postcode, street…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            aria-label="Search cases"
+          />
 
+          {/* Status */}
           <select
             className={`queue-filter-select${status ? ' is-active' : ''}`}
             value={status}
@@ -225,21 +215,17 @@ export default function AdminCasesPage() {
             aria-label="Filter by status"
           >
             <option value="">Status</option>
-            <optgroup label="Applications">
-              <option value="submitted">Submitted</option>
-              <option value="under_review">Under review</option>
-              <option value="awaiting_information">Awaiting info</option>
-              <option value="approved">Approved</option>
-              <option value="refused">Refused</option>
-            </optgroup>
-            <optgroup label="Premises verifications">
-              <option value="pending_verification">Awaiting review</option>
-              <option value="more_information_required">Info required</option>
-              <option value="verified">Verified</option>
-              <option value="verification_refused">Refused</option>
-            </optgroup>
+            <option value="submitted">Submitted</option>
+            <option value="under_review">Under review</option>
+            <option value="awaiting_information">Awaiting info</option>
+            <option value="waiting_on_officer">Waiting on officer</option>
+            <option value="verified">Verified</option>
+            <option value="under_consultation">Consultation</option>
+            <option value="licensed">Licensed</option>
+            <option value="refused">Refused</option>
           </select>
 
+          {/* Assigned */}
           <select
             className={`queue-filter-select${assigned ? ' is-active' : ''}`}
             value={assigned}
@@ -251,32 +237,25 @@ export default function AdminCasesPage() {
             <option value="unassigned">Unassigned</option>
           </select>
 
-          {typeOptions.length > 0 && (
-            <select
-              className={`queue-filter-select${typeSlug ? ' is-active' : ''}`}
-              value={typeSlug}
-              onChange={(e) => setParam('type', e.target.value)}
-              aria-label="Filter by application type"
-            >
-              <option value="">Licence type</option>
-              {typeOptions.map((t) => (
-                <option key={t.slug} value={t.slug}>{t.name}</option>
-              ))}
-            </select>
-          )}
+          {/* Postcode narrow */}
+          <input
+            type="text"
+            className={`queue-filter-input${postcode ? ' is-active' : ''}`}
+            placeholder="Postcode"
+            value={postcodeInput}
+            onChange={(e) => setPostcodeInput(e.target.value)}
+            aria-label="Filter by postcode"
+          />
 
-          <select
-            className={`queue-filter-select${createdDays ? ' is-active' : ''}`}
-            value={createdDays}
-            onChange={(e) => setParam('created_days', e.target.value)}
-            aria-label="Filter by date"
-          >
-            <option value="">Date range</option>
-            <option value="7">Last 7 days</option>
-            <option value="14">Last 14 days</option>
-            <option value="30">Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
+          {/* Updated after date */}
+          <input
+            type="date"
+            className={`queue-filter-input${updatedAfter ? ' is-active' : ''}`}
+            value={updatedAfter}
+            onChange={(e) => setParam('updated_after', e.target.value)}
+            aria-label="Updated after date"
+            title="Show cases updated after this date"
+          />
         </div>
 
         <div className="queue-sort">
@@ -288,22 +267,14 @@ export default function AdminCasesPage() {
           >
             <option value="updated">Sort: last updated</option>
             <option value="created">Sort: date created</option>
-            <option value="type">Sort: case type</option>
             <option value="status">Sort: status</option>
+            <option value="ref">Sort: case ref</option>
           </select>
         </div>
       </div>
 
-      {/* Active filter tags — dismissible chips showing what's currently filtered */}
-      <ActiveFilterTags
-        assigned={assigned}
-        status={status}
-        caseType={caseType}
-        typeSlug={typeSlug}
-        createdDays={createdDays}
-        typeOptions={typeOptions}
-        onClear={clearParam}
-      />
+      {/* Active filter chips */}
+      <ActiveFilterTags filters={activeFilters} onClear={clearParam} />
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -331,27 +302,26 @@ export default function AdminCasesPage() {
               <thead>
                 <tr>
                   <th>Ref</th>
-                  <th>Case type</th>
                   <th>Premises</th>
+                  <th>Sections</th>
                   <th>Status</th>
                   <th>Assigned to</th>
                   <th>Applicant</th>
                   <th>Updated</th>
-                  <th>Created</th>
                 </tr>
               </thead>
               <tbody>
                 {cases.map((row) => {
-                  const path = caseDetailPath(row);
+                  const path = `/admin/premise-cases/${row.id}`;
                   return (
                     <tr
-                      key={`${row.case_type}-${row.case_id}`}
+                      key={row.id}
                       className="queue-table-row"
                       onClick={() => { window.location.href = path; }}
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter') window.location.href = path; }}
                       role="link"
-                      aria-label={`${row.type_name}: ${formatCaseRef(row)}`}
+                      aria-label={`Case: ${formatRef(row)}`}
                     >
                       <td className="queue-col-ref">
                         <Link
@@ -359,46 +329,52 @@ export default function AdminCasesPage() {
                           className="queue-ref-link"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {formatCaseRef(row)}
+                          {formatRef(row)}
                         </Link>
-                      </td>
-                      <td className="queue-col-type">
-                        <span className="case-type-pill" data-type={row.case_type}>
-                          {row.type_name}
-                        </span>
                       </td>
                       <td className="queue-col-premises">
                         <div className="queue-premises-name">{row.premises_name || '—'}</div>
-                        {row.premises_postcode && (
-                          <div className="queue-premises-postcode">{row.premises_postcode}</div>
+                        {row.postcode && (
+                          <div className="queue-premises-postcode">{row.postcode}</div>
+                        )}
+                        {row.address_line_1 && (
+                          <div className="queue-premises-address">{row.address_line_1}</div>
+                        )}
+                      </td>
+                      <td className="queue-col-sections">
+                        {Array.isArray(row.sections) && row.sections.length > 0 ? (
+                          <div className="queue-sections">
+                            {row.sections.map((s) => (
+                              <span key={s.slug} className="section-pill">{s.name}</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="queue-unassigned">—</span>
                         )}
                       </td>
                       <td className="queue-col-status">
-                        <StatusBadge status={row.case_status} />
+                        <StatusBadge status={row.status} />
                       </td>
                       <td className="queue-col-assigned">
                         {row.assigned_user_id === session.user_id
                           ? <span className="queue-assigned-me">You</span>
                           : row.assigned_user_name
                             ? <span className="queue-assigned-other">{row.assigned_user_name}</span>
-                            : row.case_type === 'application'
-                              ? (
-                                <button
-                                  type="button"
-                                  className="queue-assign-me-btn"
-                                  disabled={assigningId === row.case_id}
-                                  onClick={(e) => handleSelfAssign(e, row.case_id)}
-                                >
-                                  {assigningId === row.case_id ? '…' : 'Assign to me'}
-                                </button>
-                              )
-                              : <span className="queue-unassigned">—</span>}
+                            : (
+                              <button
+                                type="button"
+                                className="queue-assign-me-btn"
+                                disabled={assigningId === row.id}
+                                onClick={(e) => handleSelfAssign(e, row.id)}
+                              >
+                                {assigningId === row.id ? '…' : 'Assign to me'}
+                              </button>
+                            )}
                       </td>
                       <td className="queue-col-applicant">
                         {row.applicant_name || row.applicant_email || '—'}
                       </td>
-                      <td className="queue-col-date">{formatShortDate(row.case_updated_at)}</td>
-                      <td className="queue-col-date">{formatShortDate(row.case_created_at)}</td>
+                      <td className="queue-col-date">{formatShortDate(row.updated_at)}</td>
                     </tr>
                   );
                 })}

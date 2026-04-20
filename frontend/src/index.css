@@ -3294,3 +3294,277 @@ body { min-height: 100vh; }
   margin: 0;
 }
 .badge-draft          { background: var(--color-surface-high); color: var(--color-text-muted); }
+
+/* =========================================================
+   Premise licence case — new model styles
+   ========================================================= */
+
+/* Case header ref number */
+.case-header-ref {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Modified badge on case header */
+.case-modified-badge {
+  font-size: 0.75rem;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+/* Timeline internal note */
+.case-timeline-internal {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+/* Timeline status change detail (badges inline) */
+.case-timeline-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+}
+
+/* Section block within case detail */
+.case-section-block {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  background: var(--color-surface-low);
+}
+
+.case-section-name {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  margin-bottom: 4px;
+}
+
+.case-section-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 0 0 8px;
+}
+
+.case-section-answers {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Section pills in queue table */
+.queue-sections { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.section-pill {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: var(--color-surface-container);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+/* Queue table column for sections */
+.queue-col-sections { max-width: 180px; }
+
+/* Queue search input */
+.queue-search-input {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  min-width: 220px;
+}
+
+.queue-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Queue filter text input (postcode, date) */
+.queue-filter-input {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  max-width: 130px;
+}
+
+.queue-filter-input.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-surface-low);
+}
+
+.queue-filter-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* Address subtext in queue */
+.queue-premises-address {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+/* Dashboard success notice */
+.notice-success {
+  background: var(--color-success-bg);
+  border-left: 3px solid var(--color-success);
+  color: var(--color-success);
+}
+
+/* =========================================================
+   Licence sections admin page
+   ========================================================= */
+
+.sections-list { display: flex; flex-direction: column; gap: 12px; }
+
+.section-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  background: var(--color-surface);
+}
+
+.section-card-disabled {
+  opacity: 0.6;
+}
+
+.section-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.section-card-name {
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-disabled-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--color-surface-high);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.section-card-slug {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.section-card-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+}
+
+.section-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.section-card-fields {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+}
+
+.section-card-fields-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.section-card-field-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-card-field-item {
+  font-size: 0.8125rem;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.field-label { flex: 1; color: var(--color-text); }
+.field-type  { font-size: 0.7rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.field-required { font-size: 0.7rem; color: var(--color-danger); font-weight: 600; }
+
+/* Section form */
+.section-form { display: flex; flex-direction: column; gap: 16px; }
+
+.section-fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.section-field-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 120px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.section-field-header {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.section-field-required {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.section-form .form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}

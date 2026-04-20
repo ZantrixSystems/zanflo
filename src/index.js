@@ -25,6 +25,9 @@ import { handleApplicationTypeRoutes } from './routes/application-types.js';
 import { handleApplicationRoutes }     from './routes/applications.js';
 import { handleAdminApplicationRoutes } from './routes/admin-applications.js';
 import { handleAdminCaseRoutes } from './routes/admin-cases.js';
+import { handleAdminPremiseCaseRoutes } from './routes/admin-premise-cases.js';
+import { handleAdminLicenceSectionRoutes } from './routes/admin-licence-sections.js';
+import { handleApplicantCaseRoutes }   from './routes/applicant-cases.js';
 import { handleAdminApplicationSetupRoutes } from './routes/admin-application-setup.js';
 import { handleAdminApplicationTypeRoutes } from './routes/admin-application-types.js';
 import { handleAdminPremisesVerificationRoutes } from './routes/admin-premises-verifications.js';
@@ -288,24 +291,29 @@ export default {
 
     try {
       const response =
-        (await handleApplicantAuthRoutes(request, env))   ??
-        (await handleStaffAuthRoutes(request, env))       ??
-        (await handlePlatformAuthRoutes(request, env))    ??
-        (await handleApplicationTypeRoutes(request, env)) ??
-        (await handleTenantPublicRoutes(request, env))    ??
-        (await handlePremisesRoutes(request, env))        ??
-        (await handleApplicationRoutes(request, env))     ??
-        (await handleAdminCaseRoutes(request, env))         ??
-        (await handleAdminApplicationRoutes(request, env)) ??
+        (await handleApplicantAuthRoutes(request, env))        ??
+        (await handleStaffAuthRoutes(request, env))            ??
+        (await handlePlatformAuthRoutes(request, env))         ??
+        (await handleApplicationTypeRoutes(request, env))      ??
+        (await handleTenantPublicRoutes(request, env))         ??
+        (await handlePremisesRoutes(request, env))             ??
+        // New premise-licence-case routes (MVP model)
+        (await handleApplicantCaseRoutes(request, env))        ??
+        (await handleAdminPremiseCaseRoutes(request, env))     ??
+        (await handleAdminLicenceSectionRoutes(request, env))  ??
+        // Legacy application routes (kept for transition)
+        (await handleApplicationRoutes(request, env))          ??
+        (await handleAdminCaseRoutes(request, env))            ??
+        (await handleAdminApplicationRoutes(request, env))     ??
         (await handleAdminApplicationSetupRoutes(request, env)) ??
         (await handleAdminApplicationTypeRoutes(request, env)) ??
         (await handleAdminPremisesVerificationRoutes(request, env)) ??
-        (await handleAdminUserRoutes(request, env))       ??
-        (await handleAdminOnboardingRoutes(request, env)) ??
-        (await handleAdminSettingsRoutes(request, env))   ??
-        (await handleAdminAuditRoutes(request, env))      ??
-        (await handleAdminNotificationRoutes(request, env)) ??
-        (await handlePlatformAdminRoutes(request, env))   ??
+        (await handleAdminUserRoutes(request, env))            ??
+        (await handleAdminOnboardingRoutes(request, env))      ??
+        (await handleAdminSettingsRoutes(request, env))        ??
+        (await handleAdminAuditRoutes(request, env))           ??
+        (await handleAdminNotificationRoutes(request, env))    ??
+        (await handlePlatformAdminRoutes(request, env))        ??
         json({ error: 'Not found' }, 404);
 
       return response;

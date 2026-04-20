@@ -134,6 +134,41 @@ export const api = {
   markAdminNotificationRead: (id) => request('POST', `/api/admin/notifications/${id}/read`),
   markAllAdminNotificationsRead: () => request('POST', '/api/admin/notifications/read-all'),
 
+  // Applicant premise licence cases
+  listApplicantCases: () => request('GET', '/api/cases'),
+  createApplicantCase: (body) => request('POST', '/api/cases', body),
+  getApplicantCase: (id) => request('GET', `/api/cases/${id}`),
+  updateApplicantCase: (id, body) => request('PUT', `/api/cases/${id}`, body),
+  submitApplicantCase: (id) => request('POST', `/api/cases/${id}/submit`),
+  respondApplicantCase: (id, body) => request('POST', `/api/cases/${id}/respond`, body),
+
+  // Admin premise licence cases
+  listPremiseCases: (params = {}) => {
+    const search = new URLSearchParams();
+    if (params.status)        search.set('status', params.status);
+    if (params.assigned)      search.set('assigned', params.assigned);
+    if (params.search)        search.set('search', params.search);
+    if (params.postcode)      search.set('postcode', params.postcode);
+    if (params.updated_after) search.set('updated_after', params.updated_after);
+    if (params.sort)          search.set('sort', params.sort);
+    const suffix = search.toString() ? `?${search}` : '';
+    return request('GET', `/api/admin/premise-cases${suffix}`);
+  },
+  getPremiseCaseStats: () => request('GET', '/api/admin/premise-cases/stats'),
+  getPremiseCase: (id) => request('GET', `/api/admin/premise-cases/${id}`),
+  assignPremiseCase: (id, body) => request('POST', `/api/admin/premise-cases/${id}/assign`, body),
+  requestPremiseCaseInformation: (id, body) => request('POST', `/api/admin/premise-cases/${id}/request-information`, body),
+  verifyPremiseCase: (id, body) => request('POST', `/api/admin/premise-cases/${id}/verify`, body),
+  decidePremiseCase: (id, body) => request('POST', `/api/admin/premise-cases/${id}/decision`, body),
+  addPremiseCaseNote: (id, body) => request('POST', `/api/admin/premise-cases/${id}/note`, body),
+  deletePremiseCase: (id) => request('DELETE', `/api/admin/premise-cases/${id}`),
+
+  // Licence section definitions
+  listLicenceSections: () => request('GET', '/api/admin/licence-sections'),
+  createLicenceSection: (body) => request('POST', '/api/admin/licence-sections', body),
+  updateLicenceSection: (id, body) => request('PUT', `/api/admin/licence-sections/${id}`, body),
+  deleteLicenceSection: (id) => request('DELETE', `/api/admin/licence-sections/${id}`),
+
   staffLogin: (body) => request('POST', '/api/staff/login', body),
   staffBootstrapExchange: (body) => request('POST', '/api/staff/bootstrap-exchange', body),
   staffLogout: () => request('POST', '/api/staff/logout'),

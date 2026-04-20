@@ -20,6 +20,8 @@ import PlatformTenantAdminIssuePage from './pages/PlatformTenantAdminIssuePage.j
 import TenantAdminLoginPage from './pages/TenantAdminLoginPage.jsx';
 import TenantAdminDashboardPage from './pages/TenantAdminDashboardPage.jsx';
 import AdminCasesPage from './pages/AdminCasesPage.jsx';
+import AdminCaseDetailPage from './pages/AdminCaseDetailPage.jsx';
+import AdminLicenceSectionsPage from './pages/AdminLicenceSectionsPage.jsx';
 import AdminApplicationDetailPage from './pages/AdminApplicationDetailPage.jsx';
 import AdminUsersPage from './pages/AdminUsersPage.jsx';
 import AdminSettingsPage from './pages/AdminSettingsPage.jsx';
@@ -268,6 +270,24 @@ export default function App() {
         element={(
           <RequireStaffAuth allowedRoles={['officer', 'manager', 'tenant_admin']}>
             <AdminCasesPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/premise-cases/:id"
+        element={(
+          <RequireStaffAuth allowedRoles={['officer', 'manager', 'tenant_admin']}>
+            <AdminCaseDetailPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/licence-sections"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin', 'manager']}>
+            <AdminLicenceSectionsPage />
           </RequireStaffAuth>
         )}
       />

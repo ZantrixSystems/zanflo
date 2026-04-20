@@ -290,7 +290,7 @@ async function getCase(request, env, caseId) {
 // POST /api/admin/premise-cases/:id/assign
 // ---------------------------------------------------------------------------
 async function assignCase(request, env, caseId) {
-  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
   if (!session) return error('Not authorised', 403);
 
   let body;
@@ -370,7 +370,7 @@ async function assignCase(request, env, caseId) {
 // POST /api/admin/premise-cases/:id/request-information
 // ---------------------------------------------------------------------------
 async function requestInformation(request, env, caseId) {
-  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
   if (!session) return error('Not authorised', 403);
 
   let body;
@@ -434,7 +434,7 @@ async function requestInformation(request, env, caseId) {
 // Transitions: under_review | waiting_on_officer → verified → under_consultation
 // ---------------------------------------------------------------------------
 async function verifyCase(request, env, caseId) {
-  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
   if (!session) return error('Not authorised', 403);
 
   let body;
@@ -482,7 +482,7 @@ async function verifyCase(request, env, caseId) {
 // POST /api/admin/premise-cases/:id/decision  { decision: 'licensed'|'refused', notes }
 // ---------------------------------------------------------------------------
 async function recordDecision(request, env, caseId) {
-  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
   if (!session) return error('Not authorised', 403);
 
   let body;
@@ -591,7 +591,7 @@ async function addNote(request, env, caseId) {
 // Managers: can delete any case
 // ---------------------------------------------------------------------------
 async function deleteCase(request, env, caseId) {
-  const session = await requireTenantStaff(request, env, 'officer', 'manager');
+  const session = await requireTenantStaff(request, env, 'officer', 'manager', 'tenant_admin');
   if (!session) return error('Not authorised', 403);
 
   const sql = getDb(env);

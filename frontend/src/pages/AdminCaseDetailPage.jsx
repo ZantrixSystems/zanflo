@@ -128,7 +128,9 @@ const EVENT_META = {
   information_requested:  { label: 'Information requested',      type: 'request' },
   information_provided:   { label: 'Information provided',       type: 'response' },
   section_added:          { label: 'Section added',              type: 'system' },
-  officer_note:           { label: 'Officer note',               type: 'note' },
+  officer_note:           { label: 'Internal note',              type: 'note-internal' },
+  note_internal:          { label: 'Internal note',              type: 'note-internal' },
+  note_public:            { label: 'Public comment',             type: 'note-public' },
   applicant_message:      { label: 'Applicant message',          type: 'message' },
   decision_made:          { label: 'Decision recorded',          type: 'decision' },
 };
@@ -142,8 +144,11 @@ function TimelineEvent({ event }) {
   return (
     <li className={`case-timeline-item type-${meta.type}`}>
       <div className="case-timeline-dot" aria-hidden="true" />
-      <div className="case-timeline-body">
-        <div className="case-timeline-label">{meta.label}</div>
+      <div className="case-timeline-card">
+        <div className="case-timeline-card-header">
+          <span className="case-timeline-label">{meta.label}</span>
+          <span className="case-timeline-date">{formatDate(event.created_at)}</span>
+        </div>
 
         {event.actor_name && (
           <div className="case-timeline-by">by {event.actor_name}</div>
@@ -163,8 +168,18 @@ function TimelineEvent({ event }) {
           <div className="case-timeline-notes">{payload.notes}</div>
         )}
 
-        {event.event_type === 'officer_note' && payload.body && (
-          <div className="case-timeline-notes case-timeline-internal">{payload.body}</div>
+        {(event.event_type === 'officer_note' || event.event_type === 'note_internal') && payload.body && (
+          <div className="case-timeline-notes case-timeline-internal">
+            <span className="case-timeline-badge-internal">Internal only</span>
+            {payload.body}
+          </div>
+        )}
+
+        {event.event_type === 'note_public' && payload.body && (
+          <div className="case-timeline-notes case-timeline-public">
+            <span className="case-timeline-badge-public">Visible to applicant</span>
+            {payload.body}
+          </div>
         )}
 
         {event.event_type === 'decision_made' && payload.decision && (
@@ -177,8 +192,6 @@ function TimelineEvent({ event }) {
         {event.event_type === 'officer_assigned' && payload.user_name && (
           <div className="case-timeline-detail">Assigned to {payload.user_name}</div>
         )}
-
-        <div className="case-timeline-date">{formatDate(event.created_at)}</div>
       </div>
     </li>
   );
@@ -211,7 +224,8 @@ export default function AdminCaseDetailPage() {
   const [error, setError]       = useState('');
   const [notice, setNotice]     = useState('');
   const [saving, setSaving]     = useState(false);
-  const [noteText, setNoteText] = useState('');
+  const [noteText, setNoteText]           = useState('');
+  const [noteVisibility, setNoteVisibility] = useState('internal');
   const [activePanel, setActivePanel] = useState(null); // null | 'status' | 'note'
 
   // Timeline sort + pagination
@@ -248,6 +262,7 @@ export default function AdminCaseDetailPage() {
     setNextStatus('');
     setStatusComment('');
     setNoteText('');
+    setNoteVisibility('internal');
     setError('');
     setNotice('');
   }
@@ -323,8 +338,9 @@ export default function AdminCaseDetailPage() {
     if (!noteText.trim()) return;
     setSaving(true);
     try {
-      await api.addPremiseCaseNote(id, { body: noteText });
+      await api.addPremiseCaseNote(id, { body: noteText, visibility: noteVisibility });
       setNoteText('');
+      setNoteVisibility('internal');
       setActivePanel(null);
       await loadCase();
     } catch (err) {
@@ -420,7 +436,7 @@ export default function AdminCaseDetailPage() {
                   onClick={() => openPanel('note')}
                   disabled={saving}
                 >
-                  Internal note
+                  Add comment
                 </button>
                 {['manager', 'tenant_admin'].includes(session.role) && canDo('cases.decide') && (
                   <button type="button" className="btn btn-danger" onClick={handleDelete} disabled={saving}>
@@ -474,22 +490,50 @@ export default function AdminCaseDetailPage() {
                 </div>
               )}
 
-              {/* Inline note panel */}
+              {/* Inline comment panel */}
               {showNote && (
                 <div className="case-inline-panel">
-                  <label className="case-action-label">Internal note <span className="case-action-label-hint">— not visible to the applicant</span></label>
-                  <textarea
-                    className="case-action-textarea"
-                    rows={3}
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    placeholder="Enter your note…"
-                    autoFocus
-                  />
+                  <div className="case-inline-panel-stack">
+                    <div className="case-inline-panel-field">
+                      <label className="case-action-label">Comment</label>
+                      <textarea
+                        className="case-action-textarea"
+                        rows={3}
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Enter your comment…"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="case-inline-panel-field">
+                      <label className="case-action-label">Visibility</label>
+                      <div className="case-note-visibility-toggle">
+                        <button
+                          type="button"
+                          className={`case-note-visibility-btn${noteVisibility === 'internal' ? ' active' : ''}`}
+                          onClick={() => setNoteVisibility('internal')}
+                        >
+                          Internal only
+                        </button>
+                        <button
+                          type="button"
+                          className={`case-note-visibility-btn${noteVisibility === 'public' ? ' active' : ''}`}
+                          onClick={() => setNoteVisibility('public')}
+                        >
+                          Public
+                        </button>
+                      </div>
+                      <p className="case-action-label-hint">
+                        {noteVisibility === 'internal'
+                          ? 'Only officers and managers can see this.'
+                          : 'The applicant will also be able to see this.'}
+                      </p>
+                    </div>
+                  </div>
                   <div className="case-inline-panel-actions">
                     <button type="button" className="btn btn-secondary" onClick={() => setActivePanel(null)} disabled={saving}>Cancel</button>
                     <button type="button" className="btn btn-primary" onClick={submitNote} disabled={saving || !noteText.trim()}>
-                      {saving ? 'Saving…' : 'Save note'}
+                      {saving ? 'Saving…' : 'Save comment'}
                     </button>
                   </div>
                 </div>

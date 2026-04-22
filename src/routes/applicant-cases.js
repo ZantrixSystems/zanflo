@@ -81,8 +81,7 @@ async function loadCaseSections(sql, tenantId, caseId) {
 }
 
 async function loadCaseEvents(sql, tenantId, caseId) {
-  // Applicants see: their own messages, information_requested, status_changed,
-  // decision_made. They do NOT see officer_note (internal).
+  // Applicants see public events + note_public. Internal notes (officer_note, note_internal) are hidden.
   return sql`
     SELECT
       ce.id,
@@ -96,7 +95,7 @@ async function loadCaseEvents(sql, tenantId, caseId) {
     LEFT JOIN applicant_accounts aa ON aa.id = ce.actor_id AND ce.actor_type = 'applicant'
     WHERE ce.tenant_id = ${tenantId}
       AND ce.case_id   = ${caseId}
-      AND ce.event_type <> 'officer_note'
+      AND ce.event_type NOT IN ('officer_note', 'note_internal')
     ORDER BY ce.created_at ASC
   `;
 }

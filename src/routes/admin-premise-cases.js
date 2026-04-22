@@ -554,8 +554,8 @@ async function recordDecision(request, env, caseId) {
 }
 
 // ---------------------------------------------------------------------------
-// POST /api/admin/premise-cases/:id/note  { body }
-// Internal officer note — not visible to applicant
+// POST /api/admin/premise-cases/:id/note  { body, visibility }
+// visibility: 'internal' (officers only) | 'public' (officers + applicant)
 // ---------------------------------------------------------------------------
 async function addNote(request, env, caseId) {
   const session = await requireTenantStaffWithPermissions(request, env, 'officer', 'manager', 'tenant_admin');
@@ -568,6 +568,9 @@ async function addNote(request, env, caseId) {
   if (!text) return error('body is required');
   if (text.length > 2000) return error('Note must be 2000 characters or fewer');
 
+  const visibility = body.visibility === 'public' ? 'public' : 'internal';
+  const eventType  = visibility === 'public' ? 'note_public' : 'note_internal';
+
   const sql = getDb(env);
   const plc = await loadCase(sql, session.tenant_id, caseId);
   if (!plc) return error('Case not found', 404);
@@ -575,17 +578,17 @@ async function addNote(request, env, caseId) {
   await writeCaseEvent(sql, {
     tenantId:  session.tenant_id,
     caseId,
-    eventType: 'officer_note',
+    eventType,
     actorType: session.role,
     actorId:   session.user_id,
-    payload:   { body: text },
+    payload:   { body: text, visibility },
   });
 
   await writeAuditLog(sql, {
     tenantId:   session.tenant_id,
     actorType:  session.role,
     actorId:    session.user_id,
-    action:     'premise_case.note_added',
+    action:     `premise_case.note_added.${visibility}`,
     recordType: 'premise_licence_case',
     recordId:   caseId,
   });

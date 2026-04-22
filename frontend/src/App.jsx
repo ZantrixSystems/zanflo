@@ -26,6 +26,10 @@ import AdminLicenceSectionsPage from './pages/AdminLicenceSectionsPage.jsx';
 import AdminApplicationDetailPage from './pages/AdminApplicationDetailPage.jsx';
 import AdminUsersPage from './pages/AdminUsersPage.jsx';
 import AdminSettingsPage from './pages/AdminSettingsPage.jsx';
+import AdminSettingsGeneralPage from './pages/AdminSettingsGeneralPage.jsx';
+import AdminSettingsPublicSitePage from './pages/AdminSettingsPublicSitePage.jsx';
+import AdminSettingsSsoPage from './pages/AdminSettingsSsoPage.jsx';
+import AdminRolesPage from './pages/AdminRolesPage.jsx';
 import AdminAuditPage from './pages/AdminAuditPage.jsx';
 import AdminApplicationSetupPage from './pages/AdminApplicationSetupPage.jsx';
 import AdminApplicationTypesPage from './pages/AdminApplicationTypesPage.jsx';
@@ -361,6 +365,42 @@ export default function App() {
         element={(
           <RequireStaffAuth allowedRoles={['tenant_admin']}>
             <AdminSettingsPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/settings/general"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin']}>
+            <AdminSettingsGeneralPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/settings/public-site"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin']}>
+            <AdminSettingsPublicSitePage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/settings/sso"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin']}>
+            <AdminSettingsSsoPage />
+          </RequireStaffAuth>
+        )}
+      />
+
+      <Route
+        path="/admin/settings/roles"
+        element={(
+          <RequireStaffAuth allowedRoles={['tenant_admin']}>
+            <AdminRolesPage />
           </RequireStaffAuth>
         )}
       />

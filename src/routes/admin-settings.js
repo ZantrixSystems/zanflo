@@ -1,7 +1,7 @@
 import { getDb } from '../db/client.js';
 import { hasSecretEncryptionKey, encryptTenantSecret } from '../lib/secret-crypto.js';
 import { writeAuditLog } from '../lib/audit.js';
-import { requireTenantStaff } from '../lib/guards.js';
+import { requireTenantStaffWithPermissions, hasPermission } from '../lib/guards.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -15,12 +15,13 @@ function error(message, status = 400) {
 }
 
 async function requireTenantAdmin(request, env) {
-  return requireTenantStaff(request, env, 'tenant_admin');
+  return requireTenantStaffWithPermissions(request, env, 'tenant_admin', 'manager', 'officer');
 }
 
 async function getSettings(request, env) {
   const session = await requireTenantAdmin(request, env);
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'settings.view')) return error('Not authorised', 403);
 
   const sql = getDb(env);
   const rows = await sql`
@@ -139,6 +140,7 @@ async function getSettings(request, env) {
 async function updateSettings(request, env) {
   const session = await requireTenantAdmin(request, env);
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'settings.edit')) return error('Not authorised', 403);
 
   let body;
   try {

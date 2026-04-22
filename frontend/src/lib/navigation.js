@@ -13,10 +13,8 @@ export function buildTenantAdminNav(session) {
   if (session?.role === 'tenant_admin') {
     items.push(
       { type: 'section', label: 'Administration' },
-      { to: '/admin/licence-sections', label: 'Licence sections' },
       { to: '/admin/users', label: 'Users' },
-      { to: '/admin/settings', label: 'Settings' },
-      { to: '/admin/audit', label: 'Audit' },
+      { to: '/admin/settings/general', label: 'Settings' },
       { href: '/', label: 'Public site' },
     );
   }

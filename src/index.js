@@ -36,6 +36,7 @@ import { handleAdminNotificationRoutes } from './routes/admin-notifications.js';
 import { handleAdminOnboardingRoutes } from './routes/admin-onboarding.js';
 import { handleAdminSettingsRoutes }   from './routes/admin-settings.js';
 import { handleAdminUserRoutes }       from './routes/admin-users.js';
+import { handleAdminRoleRoutes }       from './routes/admin-roles.js';
 import { handlePlatformAuthRoutes }    from './routes/platform-auth.js';
 import { handlePlatformAdminRoutes }   from './routes/platform-admin.js';
 import { handlePremisesRoutes }        from './routes/premises.js';
@@ -309,6 +310,7 @@ export default {
         (await handleAdminApplicationTypeRoutes(request, env)) ??
         (await handleAdminPremisesVerificationRoutes(request, env)) ??
         (await handleAdminUserRoutes(request, env))            ??
+        (await handleAdminRoleRoutes(request, env))            ??
         (await handleAdminOnboardingRoutes(request, env))      ??
         (await handleAdminSettingsRoutes(request, env))        ??
         (await handleAdminAuditRoutes(request, env))           ??

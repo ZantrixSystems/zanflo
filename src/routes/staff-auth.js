@@ -202,7 +202,37 @@ async function me(request, env) {
   const session = await requireStaff(request, env);
   if (!session) return error('Not authenticated', 401);
 
-  return json({ session });
+  // Load custom role permissions if the member has one assigned
+  const sql = getDb(env);
+  const membershipRows = await sql`
+    SELECT custom_role_id
+    FROM memberships
+    WHERE tenant_id = ${session.tenant_id}
+      AND user_id = ${session.user_id}
+    LIMIT 1
+  `;
+  const customRoleId = membershipRows[0]?.custom_role_id ?? null;
+
+  let permissions = null;
+  if (customRoleId) {
+    const permRows = await sql`
+      SELECT permission_key
+      FROM custom_role_permissions
+      WHERE role_id = ${customRoleId}
+        AND role_id IN (
+          SELECT id FROM custom_roles WHERE tenant_id = ${session.tenant_id}
+        )
+    `;
+    permissions = permRows.map((r) => r.permission_key);
+  }
+
+  return json({
+    session: {
+      ...session,
+      custom_role_id: customRoleId,
+      permissions,
+    },
+  });
 }
 
 async function getProfile(request, env) {

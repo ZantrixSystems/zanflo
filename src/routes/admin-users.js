@@ -1,6 +1,6 @@
 import { getDb } from '../db/client.js';
 import { writeAuditLog } from '../lib/audit.js';
-import { requireTenantStaff } from '../lib/guards.js';
+import { requireTenantStaffWithPermissions, hasPermission } from '../lib/guards.js';
 import { hashPassword } from '../lib/passwords.js';
 import { validateBootstrapPassword } from '../lib/password-policy.js';
 
@@ -16,12 +16,18 @@ function error(message, status = 400) {
 }
 
 async function requireTenantAdmin(request, env) {
-  return requireTenantStaff(request, env, 'tenant_admin');
+  return requireTenantStaffWithPermissions(request, env, 'tenant_admin', 'manager', 'officer');
+}
+
+function assertUsersManage(session) {
+  if (!hasPermission(session, 'users.manage')) return { error: true };
+  return null;
 }
 
 async function listUsers(request, env) {
   const session = await requireTenantAdmin(request, env);
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'users.manage')) return error('Not authorised', 403);
 
   const sql = getDb(env);
   const rows = await sql`
@@ -32,9 +38,12 @@ async function listUsers(request, env) {
       u.full_name,
       u.is_platform_admin,
       m.role,
+      m.custom_role_id,
+      cr.name AS custom_role_name,
       m.created_at
     FROM memberships m
     INNER JOIN users u ON u.id = m.user_id
+    LEFT JOIN custom_roles cr ON cr.id = m.custom_role_id
     WHERE m.tenant_id = ${session.tenant_id}
     ORDER BY
       CASE m.role
@@ -46,12 +55,19 @@ async function listUsers(request, env) {
       u.full_name ASC
   `;
 
-  return json({ users: rows });
+  const customRoles = await sql`
+    SELECT id, name FROM custom_roles
+    WHERE tenant_id = ${session.tenant_id}
+    ORDER BY name ASC
+  `;
+
+  return json({ users: rows, custom_roles: customRoles });
 }
 
 async function createUser(request, env) {
   const session = await requireTenantAdmin(request, env);
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'users.manage')) return error('Not authorised', 403);
 
   let body;
   try {
@@ -130,6 +146,7 @@ async function createUser(request, env) {
 async function updateUser(request, env, userId) {
   const session = await requireTenantAdmin(request, env);
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'users.manage')) return error('Not authorised', 403);
 
   let body;
   try {
@@ -141,8 +158,9 @@ async function updateUser(request, env, userId) {
   const role = body.role?.trim();
   const fullName = body.full_name?.trim();
   const password = body.password;
+  const customRoleId = body.custom_role_id !== undefined ? (body.custom_role_id || null) : undefined;
 
-  if (!role && !fullName && !password) {
+  if (!role && !fullName && !password && customRoleId === undefined) {
     return error('At least one field must be provided');
   }
   if (role && !['tenant_admin', 'manager', 'officer'].includes(role)) return error('Invalid role');
@@ -152,6 +170,17 @@ async function updateUser(request, env, userId) {
   }
 
   const sql = getDb(env);
+
+  // Validate custom_role_id belongs to this tenant if provided
+  if (customRoleId) {
+    const crCheck = await sql`
+      SELECT id FROM custom_roles
+      WHERE id = ${customRoleId} AND tenant_id = ${session.tenant_id}
+      LIMIT 1
+    `;
+    if (crCheck.length === 0) return error('Custom role not found', 404);
+  }
+
   const existingRows = await sql`
     SELECT
       u.id,
@@ -181,8 +210,15 @@ async function updateUser(request, env, userId) {
     await sql`
       UPDATE memberships
       SET role = ${role}
-      WHERE tenant_id = ${session.tenant_id}
-        AND user_id = ${userId}
+      WHERE tenant_id = ${session.tenant_id} AND user_id = ${userId}
+    `;
+  }
+
+  if (customRoleId !== undefined) {
+    await sql`
+      UPDATE memberships
+      SET custom_role_id = ${customRoleId}
+      WHERE tenant_id = ${session.tenant_id} AND user_id = ${userId}
     `;
   }
 
@@ -208,9 +244,12 @@ async function updateUser(request, env, userId) {
       u.username,
       u.full_name,
       u.is_platform_admin,
-      m.role
+      m.role,
+      m.custom_role_id,
+      cr.name AS custom_role_name
     FROM memberships m
     INNER JOIN users u ON u.id = m.user_id
+    LEFT JOIN custom_roles cr ON cr.id = m.custom_role_id
     WHERE m.tenant_id = ${session.tenant_id}
       AND u.id = ${userId}
     LIMIT 1

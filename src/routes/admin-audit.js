@@ -1,5 +1,5 @@
 import { getDb } from '../db/client.js';
-import { requireTenantStaff } from '../lib/guards.js';
+import { requireTenantStaffWithPermissions, hasPermission } from '../lib/guards.js';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -13,8 +13,9 @@ function error(message, status = 400) {
 }
 
 async function listAudit(request, env) {
-  const session = await requireTenantStaff(request, env, 'tenant_admin');
+  const session = await requireTenantStaffWithPermissions(request, env, 'tenant_admin', 'manager', 'officer');
   if (!session) return error('Not authorised', 403);
+  if (!hasPermission(session, 'audit.view')) return error('Not authorised', 403);
 
   const sql = getDb(env);
   const rows = await sql`

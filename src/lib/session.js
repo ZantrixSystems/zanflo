@@ -33,9 +33,11 @@ async function getHmacKey(secret) {
   );
 }
 
-export async function signSession(payload, secret) {
+export async function signSession(payload, secret, ttl = MAX_AGE) {
+  const now = Math.floor(Date.now() / 1000);
+  const stamped = { ...payload, iat: now, exp: now + ttl };
   const header = base64urlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body = base64urlEncode(JSON.stringify(payload));
+  const body = base64urlEncode(JSON.stringify(stamped));
   const key = await getHmacKey(secret);
   const sig = await crypto.subtle.sign(
     'HMAC',
@@ -59,7 +61,10 @@ export async function verifySession(token, secret) {
   );
   if (!valid) return null;
   try {
-    return JSON.parse(base64urlDecode(body));
+    const payload = JSON.parse(base64urlDecode(body));
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp && payload.exp < now) return null; // token expired
+    return payload;
   } catch {
     return null;
   }

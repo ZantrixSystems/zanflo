@@ -15,6 +15,8 @@ function isLiveTenantHost() {
     && hostname !== 'www.zanflo.com';
 }
 
+const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 async function request(method, path, body, options = {}) {
   const { includeTenantHeader = true } = options;
   const opts = {
@@ -22,6 +24,7 @@ async function request(method, path, body, options = {}) {
     credentials: 'same-origin',
     headers: {
       'Content-Type': 'application/json',
+      ...(MUTATING.has(method) && { 'X-Requested-With': 'XMLHttpRequest' }),
     },
   };
 

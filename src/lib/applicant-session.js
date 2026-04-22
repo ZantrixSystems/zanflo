@@ -25,7 +25,7 @@ const COOKIE_NAME = 'applicant_session';
 const MAX_AGE = 60 * 60 * 8; // 8 hours
 
 export async function signApplicantSession(payload, secret) {
-  return signSession(payload, secret);
+  return signSession(payload, secret, MAX_AGE);
 }
 
 export async function verifyApplicantSession(token, secret) {

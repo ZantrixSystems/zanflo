@@ -3,7 +3,19 @@ import { getDb } from '../db/client.js';
 import { isTenantHost } from './request-context.js';
 import { getCookieValue, verifySession } from './session.js';
 
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+// Returns true if the request passes the CSRF check.
+// Mutating requests must carry X-Requested-With: XMLHttpRequest.
+// This is set automatically by the React API client and cannot be sent
+// cross-origin by a browser without a CORS preflight, which we don't allow.
+export function csrfSafe(request) {
+  if (!MUTATING_METHODS.has(request.method)) return true;
+  return request.headers.get('X-Requested-With') === 'XMLHttpRequest';
+}
+
 export async function requireApplicant(request, env) {
+  if (!csrfSafe(request)) return null;
   return getApplicantSession(request, env.JWT_SECRET);
 }
 
@@ -39,6 +51,7 @@ async function loadCustomPermissions(session, env) {
 
 export async function requireTenantStaff(request, env, ...roles) {
   if (!isTenantHost(request)) return null;
+  if (!csrfSafe(request)) return null;
   const session = await requireStaff(request, env);
   if (!session) return null;
   if (roles.length > 0 && !requireTenantRole(session, ...roles)) return null;
@@ -65,6 +78,7 @@ export function hasPermission(session, permission) {
 // Use this in route handlers that need permission-level checks.
 export async function requireTenantStaffWithPermissions(request, env, ...roles) {
   if (!isTenantHost(request)) return null;
+  if (!csrfSafe(request)) return null;
   const session = await requireStaff(request, env);
   if (!session) return null;
   if (roles.length > 0 && !requireTenantRole(session, ...roles)) return null;
@@ -79,6 +93,7 @@ export async function requireTenantStaffWithPermissions(request, env, ...roles) 
 }
 
 export async function requirePlatformAdmin(request, env) {
+  if (!csrfSafe(request)) return null;
   const token = getCookieValue(request, 'session');
   if (!token) return null;
   const session = await verifySession(token, env.JWT_SECRET);

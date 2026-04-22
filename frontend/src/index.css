@@ -3400,6 +3400,13 @@ body { min-height: 100vh; }
   gap: 8px;
 }
 
+.case-timeline-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .case-timeline-date {
   font-size: 0.75rem;
   color: var(--color-text-muted);

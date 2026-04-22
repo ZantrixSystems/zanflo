@@ -147,7 +147,11 @@ function TimelineEvent({ event }) {
       <div className="case-timeline-card">
         <div className="case-timeline-card-header">
           <span className="case-timeline-label">{meta.label}</span>
-          <span className="case-timeline-date">{formatDate(event.created_at)}</span>
+          <div className="case-timeline-header-right">
+            {event.event_type === 'note_internal' && <span className="case-timeline-badge-internal">Internal</span>}
+            {event.event_type === 'note_public'   && <span className="case-timeline-badge-public">Public</span>}
+            <span className="case-timeline-date">{formatDate(event.created_at)}</span>
+          </div>
         </div>
 
         {event.actor_name && (
@@ -169,17 +173,11 @@ function TimelineEvent({ event }) {
         )}
 
         {(event.event_type === 'officer_note' || event.event_type === 'note_internal') && payload.body && (
-          <div className="case-timeline-notes case-timeline-internal">
-            <span className="case-timeline-badge-internal">Internal only</span>
-            {payload.body}
-          </div>
+          <div className="case-timeline-notes case-timeline-internal">{payload.body}</div>
         )}
 
         {event.event_type === 'note_public' && payload.body && (
-          <div className="case-timeline-notes case-timeline-public">
-            <span className="case-timeline-badge-public">Visible to applicant</span>
-            {payload.body}
-          </div>
+          <div className="case-timeline-notes case-timeline-public">{payload.body}</div>
         )}
 
         {event.event_type === 'decision_made' && payload.decision && (

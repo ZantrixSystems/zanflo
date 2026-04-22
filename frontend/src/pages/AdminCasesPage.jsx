@@ -8,15 +8,16 @@ import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
 // Status metadata for premise_licence_cases
 // ---------------------------------------------------------------------------
 const STATUS_META = {
-  draft:                { label: 'Draft',               cls: 'badge-draft' },
-  submitted:            { label: 'Submitted',           cls: 'badge-submitted' },
-  under_review:         { label: 'Under review',        cls: 'badge-under-review' },
-  awaiting_information: { label: 'Awaiting info',       cls: 'badge-awaiting' },
-  waiting_on_officer:   { label: 'Waiting on officer',  cls: 'badge-awaiting' },
-  verified:             { label: 'Verified',            cls: 'badge-approved' },
-  under_consultation:   { label: 'Consultation',        cls: 'badge-under-review' },
-  licensed:             { label: 'Licensed',            cls: 'badge-approved' },
-  refused:              { label: 'Refused',             cls: 'badge-refused' },
+  draft:                  { label: 'Draft',                 cls: 'badge-draft' },
+  submitted:              { label: 'Submitted',             cls: 'badge-submitted' },
+  under_review:           { label: 'Under review',          cls: 'badge-under-review' },
+  returned_to_applicant:  { label: 'Returned to applicant', cls: 'badge-returned' },
+  awaiting_information:   { label: 'Awaiting info',         cls: 'badge-awaiting' },
+  waiting_on_officer:     { label: 'Waiting on officer',    cls: 'badge-awaiting' },
+  verified:               { label: 'Verified',              cls: 'badge-approved' },
+  under_consultation:     { label: 'Consultation',          cls: 'badge-under-review' },
+  licensed:               { label: 'Licensed',              cls: 'badge-approved' },
+  refused:                { label: 'Refused',               cls: 'badge-refused' },
 };
 
 function StatusBadge({ status }) {

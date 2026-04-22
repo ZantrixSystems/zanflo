@@ -262,7 +262,7 @@ async function updateCase(request, env, caseId) {
   const plc = await loadApplicantCase(sql, session.tenant_id, session.applicant_account_id, caseId);
   if (!plc) return error('Case not found', 404);
 
-  const EDITABLE = ['draft', 'awaiting_information', 'licensed', 'refused'];
+  const EDITABLE = ['draft', 'awaiting_information', 'returned_to_applicant', 'licensed', 'refused'];
   if (!EDITABLE.includes(plc.status)) {
     return error('Case cannot be edited in its current status. Wait for it to return to draft or be decided.', 409);
   }
@@ -365,7 +365,7 @@ async function submitCase(request, env, caseId) {
   const plc = await loadApplicantCase(sql, session.tenant_id, session.applicant_account_id, caseId);
   if (!plc) return error('Case not found', 404);
 
-  const SUBMITTABLE = ['draft', 'licensed', 'refused'];
+  const SUBMITTABLE = ['draft', 'returned_to_applicant', 'licensed', 'refused'];
   if (!SUBMITTABLE.includes(plc.status)) {
     return error('This case cannot be submitted in its current status', 409);
   }
@@ -381,7 +381,7 @@ async function submitCase(request, env, caseId) {
   }
 
   const previousStatus = plc.status;
-  const isResubmit = ['licensed', 'refused'].includes(previousStatus);
+  const isResubmit = ['licensed', 'refused', 'returned_to_applicant'].includes(previousStatus);
 
   await sql`
     UPDATE premise_licence_cases

@@ -2967,6 +2967,7 @@ body { min-height: 100vh; }
 
 .badge-submitted      { background: #FEF3C7; color: #92400E; }
 .badge-under-review   { background: #DBEAFE; color: #1E40AF; }
+.badge-returned       { background: #FEE2E2; color: #991B1B; }
 .badge-awaiting       { background: #EDE9FE; color: #5B21B6; }
 .badge-approved       { background: var(--color-success-bg); color: var(--color-success); }
 .badge-refused        { background: var(--color-danger-bg); color: var(--color-danger); }

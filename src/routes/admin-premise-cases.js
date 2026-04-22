@@ -136,6 +136,7 @@ async function listCases(request, env) {
   const VALID_STATUSES = new Set([
     'draft','submitted','under_review','awaiting_information',
     'waiting_on_officer','verified','under_consultation','licensed','refused',
+    'returned_to_applicant',
   ]);
 
   const SORT_COLS = {
@@ -616,10 +617,12 @@ async function moveStatus(request, env, caseId) {
 
   // Fixed allowed transitions for this generic endpoint
   const ALLOWED_TRANSITIONS = {
-    verified:             ['under_consultation'],
-    awaiting_information: ['under_review'],
-    waiting_on_officer:   ['under_review'],
-    submitted:            ['under_review'],
+    submitted:              ['under_review', 'returned_to_applicant'],
+    under_review:           ['returned_to_applicant'],
+    verified:               ['under_consultation'],
+    awaiting_information:   ['under_review'],
+    waiting_on_officer:     ['under_review'],
+    returned_to_applicant:  ['under_review'],
   };
 
   const validNext = ALLOWED_TRANSITIONS[plc.status] ?? [];

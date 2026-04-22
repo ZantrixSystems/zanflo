@@ -5,22 +5,22 @@ import { api } from '../api.js';
 import { useStaffAuth } from '../components/RequireStaffAuth.jsx';
 
 const STATUS_META = {
-  draft:                { label: 'Draft',              cls: 'badge-draft' },
-  submitted:            { label: 'Submitted',          cls: 'badge-submitted' },
-  under_review:         { label: 'Under review',       cls: 'badge-under-review' },
-  awaiting_information: { label: 'Awaiting info',      cls: 'badge-awaiting' },
-  waiting_on_officer:   { label: 'Waiting on officer', cls: 'badge-awaiting' },
-  verified:             { label: 'Verified',           cls: 'badge-approved' },
-  under_consultation:   { label: 'Consultation',       cls: 'badge-under-review' },
-  licensed:             { label: 'Licensed',           cls: 'badge-approved' },
-  refused:              { label: 'Refused',            cls: 'badge-refused' },
+  draft:                  { label: 'Draft',                 cls: 'badge-draft' },
+  submitted:              { label: 'Submitted',             cls: 'badge-submitted' },
+  under_review:           { label: 'Under review',          cls: 'badge-under-review' },
+  returned_to_applicant:  { label: 'Returned to applicant', cls: 'badge-returned' },
+  awaiting_information:   { label: 'Awaiting info',         cls: 'badge-awaiting' },
+  waiting_on_officer:     { label: 'Waiting on officer',    cls: 'badge-awaiting' },
+  verified:               { label: 'Verified',              cls: 'badge-approved' },
+  under_consultation:     { label: 'Consultation',          cls: 'badge-under-review' },
+  licensed:               { label: 'Licensed',              cls: 'badge-approved' },
+  refused:                { label: 'Refused',               cls: 'badge-refused' },
 };
 
-// Full ordered workflow path
+// Main workflow path shown in the progress visualiser
 const WORKFLOW_STEPS = [
   'submitted',
   'under_review',
-  'awaiting_information',
   'verified',
   'under_consultation',
   'licensed',
@@ -28,26 +28,28 @@ const WORKFLOW_STEPS = [
 
 // Valid next statuses from each status (for the status-change control)
 const NEXT_STATUSES = {
-  submitted:            ['under_review'],
-  under_review:         ['awaiting_information', 'verified'],
-  awaiting_information: ['under_review'],
-  waiting_on_officer:   ['under_review', 'verified'],
-  verified:             ['under_consultation', 'licensed', 'refused'],
-  under_consultation:   ['licensed', 'refused'],
-  licensed:             [],
-  refused:              [],
-  draft:                [],
+  submitted:             ['under_review', 'returned_to_applicant'],
+  under_review:          ['returned_to_applicant', 'awaiting_information', 'verified'],
+  returned_to_applicant: ['under_review'],
+  awaiting_information:  ['under_review'],
+  waiting_on_officer:    ['under_review', 'verified'],
+  verified:              ['under_consultation', 'licensed', 'refused'],
+  under_consultation:    ['licensed', 'refused'],
+  licensed:              [],
+  refused:               [],
+  draft:                 [],
 };
 
 // Labels shown in the dropdown
 const NEXT_STATUS_LABELS = {
-  under_review:         'Move to Under review',
-  awaiting_information: 'Request information from applicant',
-  waiting_on_officer:   'Mark as waiting on officer',
-  verified:             'Mark as verified',
-  under_consultation:   'Move to Consultation',
-  licensed:             'Grant licence',
-  refused:              'Refuse application',
+  under_review:           'Move to Under review',
+  returned_to_applicant:  'Return to applicant',
+  awaiting_information:   'Request information from applicant',
+  waiting_on_officer:     'Mark as waiting on officer',
+  verified:               'Mark as verified',
+  under_consultation:     'Move to Consultation',
+  licensed:               'Grant licence',
+  refused:                'Refuse application',
 };
 
 function StatusBadge({ status }) {

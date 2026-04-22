@@ -45,16 +45,20 @@ export async function requireTenantStaff(request, env, ...roles) {
   return session;
 }
 
+// Default permissions for built-in roles when no custom role is assigned.
+const BUILTIN_ROLE_PERMISSIONS = {
+  manager: ['cases.view', 'cases.assign', 'cases.decide', 'settings.view', 'audit.view'],
+  officer: ['cases.view', 'cases.assign', 'cases.decide'],
+};
+
 // Check whether a session has a given permission.
-// Built-in tenant_admin always passes — they have full access.
-// Other built-in roles (manager, officer) do NOT pass permission checks by default;
-// they must be assigned a custom role that grants the permission, OR the route must
-// use requireTenantStaff with a role list instead (existing behaviour, unchanged).
-// This function is used for fine-grained gates layered on top of role checks.
+// tenant_admin always passes. Other roles fall back to BUILTIN_ROLE_PERMISSIONS
+// when no custom role is assigned; a custom role fully replaces those defaults.
 export function hasPermission(session, permission) {
   if (session?.role === 'tenant_admin') return true;
-  if (!session?.permissions) return false;
-  return session.permissions.includes(permission);
+  if (session?.permissions) return session.permissions.includes(permission);
+  const defaults = BUILTIN_ROLE_PERMISSIONS[session?.role] ?? [];
+  return defaults.includes(permission);
 }
 
 // Extended version that loads custom permissions from DB and attaches them.

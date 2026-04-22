@@ -5,3 +5,4 @@ dist/
 
 # Frontend local env — machine-specific, not committed
 frontend/.env.local
+.claude/settings.json

@@ -3584,31 +3584,31 @@ body { min-height: 100vh; }
 /* Comment visibility toggle */
 .case-note-visibility-toggle {
   display: flex;
-  gap: 0;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  gap: 6px;
   width: fit-content;
 }
 
 .case-note-visibility-btn {
-  padding: 6px 14px;
+  padding: 5px 16px;
   font-size: 0.8125rem;
   font-weight: 500;
-  background: var(--color-bg);
+  background: var(--color-surface-high);
   color: var(--color-text-muted);
-  border: none;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
-.case-note-visibility-btn:not(:last-child) {
-  border-right: 1px solid var(--color-border);
+.case-note-visibility-btn:hover:not(.active) {
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .case-note-visibility-btn.active {
   background: var(--color-primary-container);
-  color: var(--color-text);
+  border-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
   font-weight: 600;
 }
 

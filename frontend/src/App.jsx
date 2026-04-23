@@ -37,6 +37,7 @@ import { AdminPremisesVerificationDetailPage } from './pages/AdminPremisesVerifi
 import TenantApplyPage from './pages/TenantApplyPage.jsx';
 import TenantBootstrapExchangePage from './pages/TenantBootstrapExchangePage.jsx';
 import TenantPublicHomePage from './pages/TenantPublicHomePage.jsx';
+import ApplicantCaseDetailPage from './pages/ApplicantCaseDetailPage.jsx';
 import TenantUnavailablePage from './pages/TenantUnavailablePage.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import RequireStaffAuth from './components/RequireStaffAuth.jsx';
@@ -265,6 +266,15 @@ export default function App() {
         element={(
           <RequireAuth>
             <ApplicationPage />
+          </RequireAuth>
+        )}
+      />
+
+      <Route
+        path="/cases/:id"
+        element={(
+          <RequireAuth>
+            <ApplicantCaseDetailPage />
           </RequireAuth>
         )}
       />

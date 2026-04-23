@@ -150,6 +150,7 @@ export const api = {
   updateApplicantCase: (id, body) => request('PUT', `/api/cases/${id}`, body),
   submitApplicantCase: (id) => request('POST', `/api/cases/${id}/submit`),
   respondApplicantCase: (id, body) => request('POST', `/api/cases/${id}/respond`, body),
+  addApplicantMessage: (id, body) => request('POST', `/api/cases/${id}/message`, body),
 
   // Admin premise licence cases
   listPremiseCases: (params = {}) => {

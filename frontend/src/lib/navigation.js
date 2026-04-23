@@ -41,7 +41,7 @@ export function buildApplicantNav(session) {
 
   if (session) {
     items.push(
-      { to: '/dashboard', label: 'My applications' },
+      { to: '/dashboard', label: 'In progress' },
     );
   } else {
     items.push(

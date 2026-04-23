@@ -9,6 +9,7 @@ export default function Layout({
   signOutTarget = '/login',
   breadcrumbs = [],
   navItems = [],
+  fullWidth = false,
 }) {
   const applicantAuth = useAuth();
   const session = explicitSession ?? applicantAuth.session;
@@ -25,7 +26,7 @@ export default function Layout({
   }
 
   return (
-    <div className="layout">
+    <div className={`layout${fullWidth ? ' layout--full' : ''}`}>
       <header className="layout-header">
         <Link to={brandTarget} className="layout-header-brand">
           ZanFlo
@@ -45,7 +46,7 @@ export default function Layout({
           </nav>
         )}
       </header>
-      <main className="layout-main">
+      <main className={fullWidth ? 'layout-main-full' : 'layout-main'}>
         {(breadcrumbs.length > 0 || navItems.length > 0) && (
           <div className="layout-shell">
             {breadcrumbs.length > 0 && (

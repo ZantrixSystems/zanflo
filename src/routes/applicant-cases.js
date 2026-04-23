@@ -485,6 +485,46 @@ async function respondToRequest(request, env, caseId) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/cases/:id/message   { body }
+// Applicant sends a public message on a case (visible to officers + in timeline)
+// ---------------------------------------------------------------------------
+async function addMessage(request, env, caseId) {
+  const session = await requireApplicant(request, env);
+  if (!session) return error('Not authenticated', 401);
+
+  let body;
+  try { body = await request.json(); } catch { return error('Invalid JSON'); }
+
+  const text = body.body?.trim();
+  if (!text) return error('body is required');
+  if (text.length > 2000) return error('Message must be 2000 characters or fewer');
+
+  const sql = getDb(env);
+  const plc = await loadApplicantCase(sql, session.tenant_id, session.applicant_account_id, caseId);
+  if (!plc) return error('Case not found', 404);
+
+  await writeCaseEvent(sql, {
+    tenantId:  session.tenant_id,
+    caseId,
+    eventType: 'applicant_message',
+    actorType: 'applicant',
+    actorId:   session.applicant_account_id,
+    payload:   { body: text },
+  });
+
+  await writeAuditLog(sql, {
+    tenantId:   session.tenant_id,
+    actorType:  'applicant',
+    actorId:    session.applicant_account_id,
+    action:     'premise_case.applicant_message',
+    recordType: 'premise_licence_case',
+    recordId:   caseId,
+  });
+
+  return json({ sent: true });
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 export async function handleApplicantCaseRoutes(request, env) {
@@ -505,6 +545,7 @@ export async function handleApplicantCaseRoutes(request, env) {
     const [, id, action] = actionMatch;
     if (action === 'submit')  return submitCase(request, env, id);
     if (action === 'respond') return respondToRequest(request, env, id);
+    if (action === 'message') return addMessage(request, env, id);
   }
 
   return null;

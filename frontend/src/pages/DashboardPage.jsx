@@ -1,33 +1,42 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import Layout from '../components/Layout.jsx';
 import { useAuth } from '../auth-context.jsx';
 import { buildApplicantNav } from '../lib/navigation.js';
 
+// Statuses that mean something is actively happening — show in "In progress"
+const ACTIVE_STATUSES = new Set([
+  'draft',
+  'submitted',
+  'under_review',
+  'returned_to_applicant',
+  'awaiting_information',
+  'waiting_on_officer',
+  'under_consultation',
+]);
+
 const STATUS_META = {
-  draft:                  { label: 'Draft',              cls: 'appl-status-draft' },
-  submitted:              { label: 'Submitted',          cls: 'appl-status-submitted' },
-  under_review:           { label: 'Under review',       cls: 'appl-status-review' },
-  returned_to_applicant:  { label: 'Returned to you',   cls: 'appl-status-returned' },
-  awaiting_information:   { label: 'Info requested',     cls: 'appl-status-info' },
-  waiting_on_officer:     { label: 'Response sent',      cls: 'appl-status-submitted' },
-  verified:               { label: 'Verified',           cls: 'appl-status-approved' },
-  under_consultation:     { label: 'Consultation',       cls: 'appl-status-review' },
-  licensed:               { label: 'Licensed',           cls: 'appl-status-approved' },
-  refused:                { label: 'Refused',            cls: 'appl-status-refused' },
+  draft:                  { label: 'Draft',              cls: 'appl-status-draft',     needsAction: true },
+  submitted:              { label: 'Submitted',          cls: 'appl-status-submitted',  needsAction: false },
+  under_review:           { label: 'Under review',       cls: 'appl-status-review',     needsAction: false },
+  returned_to_applicant:  { label: 'Returned to you',   cls: 'appl-status-returned',   needsAction: true },
+  awaiting_information:   { label: 'Info requested',     cls: 'appl-status-info',       needsAction: true },
+  waiting_on_officer:     { label: 'Response sent',      cls: 'appl-status-submitted',  needsAction: false },
+  verified:               { label: 'Verified',           cls: 'appl-status-approved',   needsAction: false },
+  under_consultation:     { label: 'Consultation',       cls: 'appl-status-review',     needsAction: false },
+  licensed:               { label: 'Licensed',           cls: 'appl-status-approved',   needsAction: false },
+  refused:                { label: 'Refused',            cls: 'appl-status-refused',    needsAction: false },
 };
 
-const NOTICE = {
-  draft:                 { type: 'info',    text: 'This application is saved as a draft. Complete and submit it when ready.' },
-  submitted:             { type: 'pending', text: 'Your application has been submitted and is waiting to be picked up by the council.' },
-  under_review:          { type: 'pending', text: 'The council is reviewing your application.' },
-  returned_to_applicant: { type: 'warning', text: 'The council has returned this application to you with comments. Please review and resubmit.' },
-  awaiting_information:  { type: 'warning', text: 'The council has requested more information from you.' },
-  waiting_on_officer:    { type: 'pending', text: 'Your response has been sent. Waiting for the officer to review.' },
-  under_consultation:    { type: 'pending', text: 'Your application is in the consultation stage.' },
-  licensed:              { type: 'success', text: 'Your licence has been granted.' },
-  refused:               { type: 'error',   text: 'This application was refused. You can modify and resubmit.' },
+const NOTICE_TEXT = {
+  draft:                 'Finish filling in your case and submit it when ready.',
+  submitted:             'Your case has been submitted. The council will pick it up shortly.',
+  under_review:          'The licensing team is reviewing your case.',
+  returned_to_applicant: 'The officer has returned this case with comments. Please review and resubmit.',
+  awaiting_information:  'The council needs more information from you before they can continue.',
+  waiting_on_officer:    'Your response has been sent. Waiting for the officer to review.',
+  under_consultation:    'Your case is in the consultation stage.',
 };
 
 function StatusBadge({ status }) {
@@ -40,169 +49,96 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function CaseCard({ caseRecord }) {
-  const notice = NOTICE[caseRecord.status];
-  const sections = Array.isArray(caseRecord.sections) && caseRecord.sections.length > 0
-    ? caseRecord.sections.map((s) => s.name).join(' · ')
-    : null;
-
-  const needsAction = ['draft', 'returned_to_applicant', 'awaiting_information'].includes(caseRecord.status);
-
-  return (
-    <Link to={`/cases/${caseRecord.id}`} className={`appl-case-card${needsAction ? ' appl-case-card--action' : ''}`}>
-      <div className="appl-case-card-top">
-        <div className="appl-case-card-sections">
-          {sections ?? <span className="appl-case-card-no-sections">No sections selected yet</span>}
-        </div>
-        <StatusBadge status={caseRecord.status} />
-      </div>
-
-      {notice && (
-        <div className={`appl-case-notice appl-case-notice--${notice.type}`}>
-          {notice.text}
-          {needsAction && <span className="appl-case-notice-cta">→ Open case</span>}
-        </div>
-      )}
-
-      <div className="appl-case-meta">
-        {formatDate(caseRecord.created_at) && (
-          <span>Started {formatDate(caseRecord.created_at)}</span>
-        )}
-        {caseRecord.submitted_at && (
-          <span>Submitted {formatDate(caseRecord.submitted_at)}</span>
-        )}
-        {caseRecord.last_modified_at && (
-          <span>Updated {formatDate(caseRecord.last_modified_at)}</span>
-        )}
-      </div>
-    </Link>
-  );
-}
-
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const { session } = useAuth();
-
-  const [premises, setPremises] = useState([]);
-  const [cases, setCases]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState('');
-  const [startingId, setStartingId] = useState(null);
+  const [cases, setCases]     = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState('');
 
   useEffect(() => {
-    Promise.all([api.listPremises(), api.listApplicantCases()])
-      .then(([pd, cd]) => {
-        setPremises(pd.premises ?? []);
-        setCases(cd.cases ?? []);
-      })
-      .catch(() => setError('Could not load your account.'))
+    api.listApplicantCases()
+      .then((d) => setCases(d.cases ?? []))
+      .catch(() => setError('Could not load your cases.'))
       .finally(() => setLoading(false));
   }, []);
 
-  const caseByPremises = cases.reduce((acc, c) => { acc[c.premises_id] = c; return acc; }, {});
-
-  async function startCase(premisesId) {
-    setStartingId(premisesId);
-    try {
-      const data = await api.createApplicantCase({ premises_id: premisesId });
-      navigate(`/cases/${data.case.id}`);
-    } catch (err) {
-      if (err.status === 409) {
-        const existing = cases.find((c) => c.premises_id === premisesId);
-        if (existing) { navigate(`/cases/${existing.id}`); return; }
-      }
-      setError(err.message || 'Could not create case.');
-      setStartingId(null);
-    }
-  }
-
-  const firstName = session?.full_name?.split(' ')[0] ?? null;
+  const activeCases = cases.filter((c) => ACTIVE_STATUSES.has(c.status));
+  const firstName   = session?.full_name?.split(' ')[0] ?? null;
 
   return (
     <Layout
       breadcrumbs={[
-        { to: '/', label: 'Applicant portal' },
-        { label: 'My applications' },
+        { to: '/', label: 'Home' },
+        { label: 'In progress' },
       ]}
       navItems={buildApplicantNav(session)}
     >
       <div className="appl-page-header">
         <div>
           <h1 className="appl-page-title">
-            {firstName ? `Welcome back, ${firstName}` : 'My applications'}
+            {firstName ? `In progress — ${firstName}` : 'In progress'}
           </h1>
-          <p className="appl-page-subtitle">Track and manage your licence applications.</p>
+          <p className="appl-page-subtitle">
+            Cases that are active or need your attention. Licensed and closed cases appear on your premises page.
+          </p>
         </div>
-        <Link className="btn btn-primary" to="/premises/new">Add premises</Link>
+        <Link className="btn btn-secondary" to="/premises">All premises</Link>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
         <div className="spinner">Loading…</div>
-      ) : premises.length === 0 ? (
+      ) : activeCases.length === 0 ? (
         <div className="appl-empty">
-          <div className="appl-empty-icon">📋</div>
-          <div className="appl-empty-title">No premises yet</div>
+          <div className="appl-empty-icon">✅</div>
+          <div className="appl-empty-title">Nothing in progress</div>
           <p className="appl-empty-hint">
-            Add a premises first. Once it is verified by the council, you can start a licence application.
+            You have no active cases right now. Visit your premises to start a new application or view completed ones.
           </p>
-          <Link className="btn btn-primary" to="/premises/new">Add your first premises</Link>
+          <Link className="btn btn-primary" to="/premises">Go to premises</Link>
         </div>
       ) : (
         <div className="appl-premises-list">
-          {premises.map((row) => {
-            const caseRecord = caseByPremises[row.id];
-            const hasCase    = !!caseRecord;
-            const isVerified = row.verification_state === 'verified';
-            const isClosed   = ['licensed', 'refused'].includes(caseRecord?.status);
+          {activeCases.map((c) => {
+            const meta       = STATUS_META[c.status] ?? STATUS_META.draft;
+            const noticeText = NOTICE_TEXT[c.status];
+            const sections   = Array.isArray(c.sections) && c.sections.length > 0
+              ? c.sections.map((s) => s.name).join(' · ')
+              : null;
 
             return (
-              <div key={row.id} className="appl-premises-block">
-                {/* Premises header */}
-                <div className="appl-premises-head">
-                  <div className="appl-premises-head-left">
-                    <Link to={`/premises/${row.id}`} className="appl-premises-name">
-                      {row.premises_name}
-                    </Link>
-                    <div className="appl-premises-address">
-                      {[row.address_line_1, row.town_or_city, row.postcode].filter(Boolean).join(', ')}
-                    </div>
-                  </div>
-                  <div className="appl-premises-head-actions">
-                    {!hasCase && isVerified && (
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        disabled={startingId === row.id}
-                        onClick={() => startCase(row.id)}
-                      >
-                        {startingId === row.id ? 'Starting…' : 'Start application'}
-                      </button>
-                    )}
-                    {hasCase && (
-                      <Link to={`/cases/${caseRecord.id}`} className="btn btn-secondary btn-sm">
-                        {isClosed ? 'View case' : 'Open case'}
-                      </Link>
-                    )}
-                    <Link to={`/premises/${row.id}`} className="btn btn-secondary btn-sm">
-                      Premises details
-                    </Link>
-                  </div>
+              <Link
+                key={c.id}
+                to={`/cases/${c.id}`}
+                className={`appl-inprogress-card${meta.needsAction ? ' appl-inprogress-card--action' : ''}`}
+              >
+                <div className="appl-inprogress-top">
+                  <div className="appl-inprogress-premises">{c.premises_name}</div>
+                  <StatusBadge status={c.status} />
                 </div>
 
-                {/* Application case */}
-                <div className="appl-cases-area">
-                  {!hasCase && (
-                    <div className="appl-no-case">
-                      {isVerified
-                        ? 'No application started yet. Use the button above to begin.'
-                        : `Premises not yet verified (${row.verification_state?.replace(/_/g, ' ') ?? 'not submitted'}). Verification is required before applying.`}
-                    </div>
-                  )}
-                  {hasCase && <CaseCard caseRecord={caseRecord} />}
+                <div className="appl-inprogress-address">
+                  {[c.address_line_1, c.postcode].filter(Boolean).join(', ')}
                 </div>
-              </div>
+
+                {sections && (
+                  <div className="appl-inprogress-sections">{sections}</div>
+                )}
+
+                {noticeText && (
+                  <div className={`appl-inprogress-notice${meta.needsAction ? ' appl-inprogress-notice--action' : ''}`}>
+                    {noticeText}
+                    {meta.needsAction && <span className="appl-inprogress-cta">Open →</span>}
+                  </div>
+                )}
+
+                <div className="appl-case-meta">
+                  {formatDate(c.created_at) && <span>Started {formatDate(c.created_at)}</span>}
+                  {c.submitted_at && <span>Submitted {formatDate(c.submitted_at)}</span>}
+                  {c.last_modified_at && <span>Updated {formatDate(c.last_modified_at)}</span>}
+                </div>
+              </Link>
             );
           })}
         </div>
